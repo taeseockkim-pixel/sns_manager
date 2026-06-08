@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}산출물 — CIMON SNS Manager{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="text-2xl font-bold text-slate-800">산출물</h1>
+  <p class="text-sm text-slate-500 mt-1">프로젝트 산출물 — 플랫폼 매트릭스, 톤매뉴얼, PoC 런북</p>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+  {% for file in files %}
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 hover:shadow-md transition-shadow">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+        <span class="text-blue-600 text-lg">📄</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="font-semibold text-slate-800 text-sm truncate">{{ file.name }}</p>
+        <p class="text-xs text-slate-400 mt-0.5">{{ (file.size / 1024) | round(1) }} KB · {{ file.modified }}</p>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <a href="/deliverables/view/{{ file.name }}"
+         class="flex-1 text-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors">
+        열람
+      </a>
+      <a href="/deliverables/download/{{ file.name }}"
+         class="flex-1 text-center px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors">
+        다운로드
+      </a>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-span-3 py-16 text-center">
+    <p class="text-slate-400 text-sm">산출물 파일이 없습니다. <code class="bg-slate-100 px-1 rounded">deliverables/</code> 폴더를 확인하세요.</p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

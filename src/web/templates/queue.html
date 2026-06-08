@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}승인 대기열 — CIMON SNS Manager{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="text-2xl font-bold text-slate-800">승인 대기열</h1>
+  <p class="text-sm text-slate-500 mt-1">H-01: 모든 게시물은 사람 승인 후 게시됩니다</p>
+</div>
+
+<!-- 탭 네비게이션 -->
+<div class="flex gap-1 mb-6 bg-white border border-slate-200 rounded-xl p-1 w-fit shadow-sm">
+  <a href="/queue?status=pending"
+     class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
+            {% if status == 'pending' %}bg-blue-600 text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+    대기중
+    {% if counts.pending > 0 %}
+    <span class="ml-1.5 {% if status == 'pending' %}bg-blue-500{% else %}bg-amber-500{% endif %} text-white text-xs rounded-full px-1.5 py-0.5">
+      {{ counts.pending }}
+    </span>
+    {% endif %}
+  </a>
+  <a href="/queue?status=approved"
+     class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
+            {% if status == 'approved' %}bg-blue-600 text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+    승인됨
+    <span class="ml-1.5 {% if status == 'approved' %}bg-blue-500{% else %}bg-slate-200{% endif %} {% if status == 'approved' %}text-white{% else %}text-slate-600{% endif %} text-xs rounded-full px-1.5 py-0.5">
+      {{ counts.approved }}
+    </span>
+  </a>
+  <a href="/queue?status=rejected"
+     class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
+            {% if status == 'rejected' %}bg-blue-600 text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+    반려됨
+    <span class="ml-1.5 {% if status == 'rejected' %}bg-blue-500{% else %}bg-slate-200{% endif %} {% if status == 'rejected' %}text-white{% else %}text-slate-600{% endif %} text-xs rounded-full px-1.5 py-0.5">
+      {{ counts.rejected }}
+    </span>
+  </a>
+  <a href="/queue?status=all"
+     class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
+            {% if status == 'all' %}bg-blue-600 text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+    전체
+  </a>
+</div>
+
+<!-- 콘텐츠 테이블 -->
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+  {% if items %}
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 border-b border-slate-200">
+      <tr>
+        <th class="text-left px-5 py-3 font-semibold text-slate-600 w-16">ID</th>
+        <th class="text-left px-5 py-3 font-semibold text-slate-600 w-24">플랫폼</th>
+        <th class="text-left px-5 py-3 font-semibold text-slate-600 w-20">점수</th>
+        <th class="text-left px-5 py-3 font-semibold text-slate-600">콘텐츠</th>
+        <th class="text-left px-5 py-3 font-semibold text-slate-600 w-36">등록 시각</th>
+        <th class="text-left px-5 py-3 font-semibold text-slate-600 w-44">액션</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100" id="queue-tbody">
+      {% for item in items %}
+        {% include "partials/queue_row.html" %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="py-16 text-center">
+    <p class="text-slate-400 text-sm">
+      {% if status == 'pending' %}대기 중인 콘텐츠가 없습니다.
+      {% elif status == 'approved' %}승인된 콘텐츠가 없습니다.
+      {% elif status == 'rejected' %}반려된 콘텐츠가 없습니다.
+      {% else %}콘텐츠가 없습니다.{% endif %}
+    </p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

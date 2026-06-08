@@ -105,6 +105,70 @@ def reject(queue_id: int, reason: str, reviewer: str = "manual"):
     print(f"❌ ID {queue_id} 반려 완료: {reason}")
 
 
+def list_all(status: str = None) -> list:
+    """status: 'pending' | 'approved' | 'rejected' | None (전체)."""
+    with get_conn() as conn:
+        if status == "pending":
+            rows = conn.execute(
+                "SELECT * FROM approval_queue WHERE approved = 0 AND rejection_reason IS NULL ORDER BY created_at DESC"
+            ).fetchall()
+        elif status == "approved":
+            rows = conn.execute(
+                "SELECT * FROM approval_queue WHERE approved = 1 ORDER BY reviewed_at DESC"
+            ).fetchall()
+        elif status == "rejected":
+            rows = conn.execute(
+                "SELECT * FROM approval_queue WHERE rejection_reason IS NOT NULL ORDER BY reviewed_at DESC"
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM approval_queue ORDER BY created_at DESC"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get(queue_id: int) -> dict | None:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM approval_queue WHERE id = ?", (queue_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def count_by_status() -> dict:
+    with get_conn() as conn:
+        pending = conn.execute(
+            "SELECT COUNT(*) FROM approval_queue WHERE approved = 0 AND rejection_reason IS NULL"
+        ).fetchone()[0]
+        approved = conn.execute(
+            "SELECT COUNT(*) FROM approval_queue WHERE approved = 1"
+        ).fetchone()[0]
+        rejected = conn.execute(
+            "SELECT COUNT(*) FROM approval_queue WHERE rejection_reason IS NOT NULL"
+        ).fetchone()[0]
+        return {"pending": pending, "approved": approved, "rejected": rejected}
+
+
+def list_publish_log(limit: int = 100) -> list:
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT pl.*, aq.platform as queue_platform, aq.topic, aq.brand_safety_score,
+                   aq.reviewed_by, aq.ko_text
+            FROM publish_log pl
+            LEFT JOIN approval_queue aq ON pl.queue_id = aq.id
+            ORDER BY pl.published_at DESC LIMIT ?
+        """, (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def count_published_today() -> int:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM publish_log WHERE date(published_at) = date('now') AND status = 'success'"
+        ).fetchone()
+        return row[0]
+
+
 def log_publish(queue_id: int, platform: str, platform_post_id: str = None, status: str = "success", error: str = None):
     with get_conn() as conn:
         conn.execute("""

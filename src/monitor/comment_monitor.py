@@ -41,6 +41,14 @@ def _send_alert(message: str):
     print(f"[ALERT] {email}: {message}")
 
 
+def check_once_x(since_id: str = None) -> list:
+    """
+    X 멘션을 한 번만 수집하여 반환. APScheduler 호출용.
+    반환: [{"text": ..., "id": ..., "author_id": ...}, ...]
+    """
+    return get_mentions(since_id=since_id)
+
+
 def monitor_x(poll_interval_sec: int = 300):
     """X 멘션 폴링 모니터링 (5분 간격)."""
     since_id = None

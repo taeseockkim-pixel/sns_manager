@@ -1,0 +1,63 @@
+<div id="notif-{{ notif.id }}"
+     class="flex items-start gap-4 px-5 py-4 transition-colors
+            {% if not notif.read_at %}bg-blue-50/30{% else %}bg-white hover:bg-slate-50{% endif %}"
+     hx-patch="/notifications/{{ notif.id }}/read"
+     hx-trigger="click once"
+     hx-swap="none">
+
+  <!-- 심각도 아이콘 -->
+  <div class="flex-shrink-0 mt-0.5">
+    {% if notif.severity == 'critical' %}
+    <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center border border-red-200">
+      <span class="text-red-600 text-sm">⚠</span>
+    </div>
+    {% elif notif.severity == 'warning' %}
+    <div class="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center border border-amber-200">
+      <span class="text-amber-600 text-sm">!</span>
+    </div>
+    {% elif notif.severity == 'success' %}
+    <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center border border-green-200">
+      <span class="text-green-600 text-sm">✓</span>
+    </div>
+    {% else %}
+    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center border border-blue-200">
+      <span class="text-blue-600 text-sm">i</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- 내용 -->
+  <div class="flex-1 min-w-0">
+    <div class="flex items-start justify-between gap-4">
+      <p class="text-sm font-semibold text-slate-800
+                {% if not notif.read_at %}font-semibold{% else %}font-medium{% endif %}">
+        {{ notif.title }}
+        {% if not notif.read_at %}
+        <span class="ml-2 w-2 h-2 inline-block rounded-full bg-blue-500"></span>
+        {% endif %}
+      </p>
+      <span class="text-xs text-slate-400 whitespace-nowrap flex-shrink-0">
+        {{ notif.created_at[:16] if notif.created_at else '' }}
+      </span>
+    </div>
+    {% if notif.body %}
+    <p class="text-xs text-slate-500 mt-0.5 truncate" title="{{ notif.body }}">{{ notif.body }}</p>
+    {% endif %}
+    <div class="flex items-center gap-3 mt-1">
+      {% if notif.type == 'monitor_alert' %}
+      <span class="text-xs text-red-600 font-medium">모니터링 알림</span>
+      {% elif notif.type == 'publish_success' %}
+      <span class="text-xs text-green-600 font-medium">게시 성공</span>
+      {% elif notif.type == 'api_error' %}
+      <span class="text-xs text-red-600 font-medium">API 오류</span>
+      {% else %}
+      <span class="text-xs text-slate-400">{{ notif.type }}</span>
+      {% endif %}
+      {% if notif.related_event_id %}
+      <a href="/monitoring" class="text-xs text-blue-600 hover:underline">이벤트 보기 →</a>
+      {% elif notif.related_queue_id %}
+      <a href="/queue?status=all" class="text-xs text-blue-600 hover:underline">대기열 보기 →</a>
+      {% endif %}
+    </div>
+  </div>
+</div>

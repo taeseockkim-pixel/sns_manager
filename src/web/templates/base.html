@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}CIMON SNS Manager{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
+    .htmx-request .htmx-indicator { opacity: 1; }
+    .htmx-request.htmx-indicator { opacity: 1; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+  <!-- Top Navigation -->
+  <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center">
+            <span class="text-white font-bold text-sm">C</span>
+          </div>
+          <span class="font-semibold text-slate-800 text-lg">CIMON SNS Manager</span>
+        </div>
+
+        <!-- Nav Links -->
+        <div class="flex items-center gap-1">
+          <a href="/"
+             class="px-3 py-2 rounded-md text-sm font-medium transition-colors
+                    {% if page == 'dashboard' %}bg-blue-50 text-blue-700{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100{% endif %}">
+            대시보드
+          </a>
+          <a href="/queue"
+             class="px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5
+                    {% if page == 'queue' %}bg-blue-50 text-blue-700{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100{% endif %}">
+            승인 대기열
+            {% if counts is defined and counts.pending > 0 %}
+            <span class="bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5 font-semibold">{{ counts.pending }}</span>
+            {% endif %}
+          </a>
+          <a href="/monitoring"
+             class="px-3 py-2 rounded-md text-sm font-medium transition-colors
+                    {% if page == 'monitoring' %}bg-blue-50 text-blue-700{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100{% endif %}">
+            모니터링
+          </a>
+          <a href="/notifications"
+             class="px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5
+                    {% if page == 'notifications' %}bg-blue-50 text-blue-700{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100{% endif %}">
+            알림
+            <span id="notif-count"
+                  class="{% if unread_count == 0 %}hidden{% endif %} bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-semibold">
+              {{ unread_count }}
+            </span>
+          </a>
+          <a href="/publish-log"
+             class="px-3 py-2 rounded-md text-sm font-medium transition-colors
+                    {% if page == 'publish_log' %}bg-blue-50 text-blue-700{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100{% endif %}">
+            게시 이력
+          </a>
+          <a href="/deliverables"
+             class="px-3 py-2 rounded-md text-sm font-medium transition-colors
+                    {% if page == 'deliverables' %}bg-blue-50 text-blue-700{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100{% endif %}">
+            산출물
+          </a>
+        </div>
+
+        <!-- Right: API Mode Badge -->
+        <div class="flex items-center gap-3">
+          {% if api_mode is defined and api_mode == 'mock' %}
+          <span class="bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-1 rounded-full border border-amber-200">
+            MOCK 모드
+          </span>
+          {% endif %}
+          <div class="w-2 h-2 rounded-full bg-green-500" title="서버 정상"></div>
+        </div>
+
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-200 mt-12 py-4">
+    <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
+      CIMON SNS Manager — H-01 Human-in-the-Loop 원칙 준수 | IPO 준비 단계 운영
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

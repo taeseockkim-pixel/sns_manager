@@ -1,0 +1,55 @@
+<tr id="event-row-{{ event.id }}" class="hover:bg-slate-50 transition-colors
+    {% if event.severity == 'critical' %}bg-red-50/40{% elif event.severity == 'warning' %}bg-amber-50/30{% endif %}">
+
+  <td class="px-5 py-3">
+    {% if event.severity == 'critical' %}
+    <span class="inline-flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full border border-red-200">
+      <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> CRITICAL
+    </span>
+    {% elif event.severity == 'warning' %}
+    <span class="inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+      <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> WARNING
+    </span>
+    {% else %}
+    <span class="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+      <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> INFO
+    </span>
+    {% endif %}
+  </td>
+
+  <td class="px-5 py-3">
+    {% if event.platform == 'x' %}
+    <span class="bg-slate-900 text-white text-xs font-bold px-2 py-0.5 rounded">X</span>
+    {% elif event.platform == 'facebook' %}
+    <span class="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded">FB</span>
+    {% else %}
+    <span class="bg-pink-500 text-white text-xs font-bold px-2 py-0.5 rounded">IG</span>
+    {% endif %}
+  </td>
+
+  <td class="px-5 py-3 text-xs text-slate-500 truncate max-w-[7rem]">
+    {{ event.author or '-' }}
+  </td>
+
+  <td class="px-5 py-3 max-w-sm">
+    <p class="text-slate-800 text-sm truncate" title="{{ event.text }}">{{ event.text }}</p>
+    {% if event.sentiment == 'ipo_sensitive' %}
+    <span class="text-xs text-purple-600 font-medium">IPO 민감 키워드 포함</span>
+    {% elif event.sentiment == 'negative' %}
+    <span class="text-xs text-red-600 font-medium">부정적 키워드 감지</span>
+    {% endif %}
+  </td>
+
+  <td class="px-5 py-3 text-xs text-slate-400 whitespace-nowrap">
+    {{ event.detected_at[:16] if event.detected_at else '-' }}
+  </td>
+
+  <td class="px-5 py-3">
+    {% if event.url %}
+    <a href="{{ event.url }}" target="_blank" rel="noopener noreferrer"
+       class="text-xs text-blue-600 hover:underline">원본 →</a>
+    {% else %}
+    <span class="text-xs text-slate-300">-</span>
+    {% endif %}
+  </td>
+</tr>
