@@ -91,7 +91,6 @@ def approve(queue_id: int, reviewer: str = "manual"):
             WHERE id = ?
         """, (reviewer, queue_id))
         conn.commit()
-    print(f"✅ ID {queue_id} 승인 완료 (by {reviewer})")
 
 
 def reject(queue_id: int, reason: str, reviewer: str = "manual"):
@@ -102,7 +101,6 @@ def reject(queue_id: int, reason: str, reviewer: str = "manual"):
             WHERE id = ?
         """, (reason, reviewer, queue_id))
         conn.commit()
-    print(f"❌ ID {queue_id} 반려 완료: {reason}")
 
 
 def list_all(status: str = None) -> list:

@@ -21,7 +21,7 @@ from src.web.routes import dashboard, actions, sse
 async def lifespan(app: FastAPI):
     init_db_extensions()
     seed_mock_data()
-    bus.set_loop(asyncio.get_event_loop())
+    bus.set_loop(asyncio.get_running_loop())
     runner.scheduler.start()
     yield
     runner.scheduler.shutdown(wait=False)
