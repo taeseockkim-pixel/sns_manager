@@ -4,94 +4,136 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}CIMON SNS Manager{% endblock %}</title>
+  <!-- Tailwind Play CDN (개발/PoC 전용) -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <!-- HTMX 로컬 서빙 — CDN 의존성 제거 -->
+  <script src="/static/htmx.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            /* 시스템 폰트 우선 — 외부 CDN 없이 즉시 렌더링 */
+            sans: [
+              '-apple-system', 'BlinkMacSystemFont',
+              'Apple SD Gothic Neo', 'Malgun Gothic',
+              'Segoe UI', 'system-ui', 'sans-serif'
+            ]
+          },
+          colors: { nav: '#111827' }
+        }
+      }
+    }
+  </script>
   <style>
+    /* 스크롤바 gutter 고정 — 페이지 전환 시 좌우 흔들림 방지 */
+    html {
+      overflow-y: scroll;
+      scrollbar-gutter: stable;
+    }
+    body {
+      /* 시스템 폰트 스택 — Google Fonts 외부 요청 없음 */
+      font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
+                   'Malgun Gothic', 'Segoe UI', system-ui, sans-serif;
+    }
     [x-cloak] { display: none !important; }
     .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
     .htmx-request .htmx-indicator { opacity: 1; }
     .htmx-request.htmx-indicator { opacity: 1; }
+    /* 뱃지: visibility hidden 시에도 동일 공간 유지 → nav 너비 불변 */
+    .nav-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.25em;
+      padding: 1px 5px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.4;
+      transition: opacity 150ms;
+    }
+    .nav-badge-hidden { visibility: hidden; }
   </style>
 </head>
-<body class="bg-slate-50 min-h-screen">
+<body class="bg-gray-50 min-h-screen text-gray-900">
 
-  <!-- Top Navigation -->
-  <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
+  <!-- 상단 네비게이션 — 참고 페이지 스타일 -->
+  <nav class="sticky top-0 z-50" style="background:#111827;">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8">
+      <!-- justify-between 제거 → ml-auto로 우측 고정, 뱃지 너비 변동이 로고 위치에 영향 없음 -->
+      <div class="flex items-center h-14">
 
-        <!-- Logo -->
-        <div class="flex items-center gap-3">
-          <div class="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center">
-            <span class="text-white font-bold text-sm">C</span>
+        <!-- 로고 -->
+        <a href="/" class="flex items-center gap-2.5 shrink-0 mr-6">
+          <div class="w-7 h-7 rounded flex items-center justify-center" style="background:#fff;">
+            <span style="color:#111827;font-weight:800;font-size:12px;letter-spacing:-0.5px;">C</span>
           </div>
-          <span class="font-semibold text-slate-800 text-lg">CIMON SNS Manager</span>
-        </div>
+          <span class="text-white font-semibold text-sm tracking-tight">CIMON SNS</span>
+        </a>
 
-        <!-- Nav Links -->
-        <div class="flex items-center gap-1">
-          <a href="/"
-             class="px-3 py-2 rounded-md text-sm font-medium transition-colors
-                    {% if page == 'dashboard' %}bg-blue-50 text-blue-700{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100{% endif %}">
+        <!-- 네비 링크 -->
+        <div class="flex items-center gap-0.5 text-xs">
+          <a href="/" class="px-3 py-1.5 rounded font-medium transition-colors
+            {% if page == 'dashboard' %}text-white bg-white/10{% else %}text-white/60 hover:text-white hover:bg-white/5{% endif %}">
             대시보드
           </a>
-          <a href="/queue"
-             class="px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5
-                    {% if page == 'queue' %}bg-blue-50 text-blue-700{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100{% endif %}">
+          <a href="/queue" class="px-3 py-1.5 rounded font-medium transition-colors flex items-center gap-1.5
+            {% if page == 'queue' %}text-white bg-white/10{% else %}text-white/60 hover:text-white hover:bg-white/5{% endif %}">
             승인 대기열
-            {% if counts is defined and counts.pending > 0 %}
-            <span class="bg-amber-500 text-white text-xs rounded-full px-1.5 py-0.5 font-semibold">{{ counts.pending }}</span>
-            {% endif %}
+            <!-- 항상 렌더링 후 visibility로 숨김 → nav 너비 불변 -->
+            <span class="nav-badge bg-amber-500 text-white {% if not (counts is defined and counts.pending > 0) %}nav-badge-hidden{% endif %}">{{ counts.pending if counts is defined and counts.pending > 0 else '0' }}</span>
           </a>
-          <a href="/monitoring"
-             class="px-3 py-2 rounded-md text-sm font-medium transition-colors
-                    {% if page == 'monitoring' %}bg-blue-50 text-blue-700{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100{% endif %}">
+          <a href="/monitoring" class="px-3 py-1.5 rounded font-medium transition-colors
+            {% if page == 'monitoring' %}text-white bg-white/10{% else %}text-white/60 hover:text-white hover:bg-white/5{% endif %}">
             모니터링
           </a>
-          <a href="/notifications"
-             class="px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5
-                    {% if page == 'notifications' %}bg-blue-50 text-blue-700{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100{% endif %}">
+          <a href="/notifications" class="px-3 py-1.5 rounded font-medium transition-colors flex items-center gap-1.5
+            {% if page == 'notifications' %}text-white bg-white/10{% else %}text-white/60 hover:text-white hover:bg-white/5{% endif %}">
             알림
             <span id="notif-count"
-                  class="{% if unread_count == 0 %}hidden{% endif %} bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-semibold">
-              {{ unread_count }}
-            </span>
+              class="nav-badge bg-red-500 text-white {% if not unread_count %}nav-badge-hidden{% endif %}"
+              >{{ unread_count or '0' }}</span>
           </a>
-          <a href="/publish-log"
-             class="px-3 py-2 rounded-md text-sm font-medium transition-colors
-                    {% if page == 'publish_log' %}bg-blue-50 text-blue-700{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100{% endif %}">
+          <a href="/publish-log" class="px-3 py-1.5 rounded font-medium transition-colors
+            {% if page == 'publish_log' %}text-white bg-white/10{% else %}text-white/60 hover:text-white hover:bg-white/5{% endif %}">
             게시 이력
           </a>
-          <a href="/deliverables"
-             class="px-3 py-2 rounded-md text-sm font-medium transition-colors
-                    {% if page == 'deliverables' %}bg-blue-50 text-blue-700{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100{% endif %}">
+          <a href="/deliverables" class="px-3 py-1.5 rounded font-medium transition-colors
+            {% if page == 'deliverables' %}text-white bg-white/10{% else %}text-white/60 hover:text-white hover:bg-white/5{% endif %}">
             산출물
           </a>
         </div>
 
-        <!-- Right: API Mode Badge -->
-        <div class="flex items-center gap-3">
+        <!-- 우측 상태 — ml-auto 로 우측 끝 고정 -->
+        <div class="flex items-center gap-3 ml-auto shrink-0">
           {% if api_mode is defined and api_mode == 'mock' %}
-          <span class="bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-1 rounded-full border border-amber-200">
-            MOCK 모드
+          <span class="font-semibold rounded-full px-2 py-0.5 border"
+            style="font-size:10px;background:rgba(245,158,11,.15);color:#fbbf24;border-color:rgba(245,158,11,.3);">
+            MOCK
+          </span>
+          {% else %}
+          <span class="font-semibold rounded-full px-2 py-0.5 border"
+            style="font-size:10px;background:rgba(34,197,94,.15);color:#4ade80;border-color:rgba(34,197,94,.3);">
+            LIVE
           </span>
           {% endif %}
-          <div class="w-2 h-2 rounded-full bg-green-500" title="서버 정상"></div>
+          <div class="w-1.5 h-1.5 rounded-full bg-green-400" title="서버 정상"></div>
         </div>
 
       </div>
     </div>
   </nav>
 
-  <!-- Main Content -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <!-- 본문 -->
+  <main class="max-w-7xl mx-auto px-6 lg:px-8 py-10">
     {% block content %}{% endblock %}
   </main>
 
-  <!-- Footer -->
-  <footer class="border-t border-slate-200 mt-12 py-4">
-    <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
-      CIMON SNS Manager — H-01 Human-in-the-Loop 원칙 준수 | IPO 준비 단계 운영
+  <!-- 푸터 -->
+  <footer class="border-t border-gray-200 mt-16 py-5">
+    <div class="max-w-7xl mx-auto px-6 text-center text-xs text-gray-400">
+      CIMON SNS Manager &nbsp;·&nbsp; H-01 Human-in-the-Loop 원칙 준수 &nbsp;·&nbsp; IPO 준비 단계 운영
     </div>
   </footer>
 

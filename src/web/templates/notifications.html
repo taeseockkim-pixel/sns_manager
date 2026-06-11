@@ -2,17 +2,17 @@
 {% block title %}알림 — CIMON SNS Manager{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-6">
+<div class="flex items-start justify-between mb-8">
   <div>
-    <h1 class="text-2xl font-bold text-slate-800">알림</h1>
-    <p class="text-sm text-slate-500 mt-1">모니터링 이슈, 게시 결과, API 오류 통합 피드</p>
+    <h1 class="text-3xl font-bold text-gray-900 tracking-tight">알림</h1>
+    <p class="text-sm text-gray-500 mt-1.5">모니터링 이슈, 게시 결과, API 오류 통합 피드</p>
   </div>
   {% if unread_count > 0 %}
   <button
     hx-post="/notifications/read-all"
     hx-target="#notif-count-wrapper"
     hx-swap="outerHTML"
-    class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
+    class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
     전체 읽음 처리 ({{ unread_count }})
   </button>
   {% endif %}
@@ -20,20 +20,20 @@
 
 <div id="notif-count-wrapper">
   {% if unread_count > 0 %}
-  <p class="text-sm text-slate-500 mb-4">미열람 <span class="font-semibold text-slate-800">{{ unread_count }}</span>건</p>
+  <p class="text-sm text-gray-500 mb-4">미열람 <span class="font-bold text-gray-900">{{ unread_count }}</span>건</p>
   {% endif %}
 </div>
 
-<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
   {% if notifications %}
-  <div class="divide-y divide-slate-100" id="notifications-list">
+  <div class="divide-y divide-gray-100" id="notifications-list">
     {% for notif in notifications %}
       {% include "partials/notification_item.html" %}
     {% endfor %}
   </div>
   {% else %}
-  <div class="py-16 text-center">
-    <p class="text-slate-400 text-sm">알림이 없습니다.</p>
+  <div class="py-20 text-center">
+    <p class="text-gray-400 text-sm">알림이 없습니다.</p>
   </div>
   {% endif %}
 </div>

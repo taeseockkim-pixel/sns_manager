@@ -60,6 +60,7 @@ async def dashboard(request: Request):
     monitor_info = _next_monitor_info()
     last_run = _last_monitor_info()
     api_mode = os.getenv("API_MODE", "mock")
+    account_stats = events_db.get_account_stats()
 
     return templates.TemplateResponse(request, "dashboard.html", {
         "page": "dashboard",
@@ -72,6 +73,7 @@ async def dashboard(request: Request):
         "monitor_info": monitor_info,
         "last_run": last_run,
         "api_mode": api_mode,
+        "account_stats": account_stats,
     })
 
 
@@ -100,6 +102,7 @@ async def monitoring_page(request: Request, severity: str = Query(default="")):
     monitor_info = _next_monitor_info()
     last_run = _last_monitor_info()
     unread_count = events_db.count_unread()
+    account_stats = events_db.get_account_stats()
 
     return templates.TemplateResponse(request, "monitoring.html", {
         "page": "monitoring",
@@ -109,6 +112,7 @@ async def monitoring_page(request: Request, severity: str = Query(default="")):
         "monitor_info": monitor_info,
         "last_run": last_run,
         "unread_count": unread_count,
+        "account_stats": account_stats,
     })
 
 

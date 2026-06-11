@@ -54,58 +54,6 @@ _MOCK_QUEUE_ITEMS = [
     },
 ]
 
-_MOCK_EVENTS = [
-    {
-        "platform": "x",
-        "event_type": "mention",
-        "external_id": "mock-x-001",
-        "author": "@mfg_engineer_kr",
-        "text": "CIMON 로봇 팔 실제로 써봤는데 정말 인상적이네요! 자동차 부품 라인에 도입 검토 중입니다.",
-        "sentiment": "neutral",
-        "severity": "info",
-        "url": "https://twitter.com/i/status/mock001",
-    },
-    {
-        "platform": "x",
-        "event_type": "mention",
-        "external_id": "mock-x-002",
-        "author": "@stock_analyst_99",
-        "text": "CIMON 상장 일정이랑 공모가 정보 아시는 분 계신가요? 실적 궁금한데",
-        "sentiment": "ipo_sensitive",
-        "severity": "warning",
-        "url": "https://twitter.com/i/status/mock002",
-    },
-    {
-        "platform": "x",
-        "event_type": "mention",
-        "external_id": "mock-x-003",
-        "author": "@industrial_critic",
-        "text": "cimon 제품 사기 아닌가요? 광고랑 실제가 다르다는 후기가 있던데. 결함 있다는 소문도",
-        "sentiment": "negative",
-        "severity": "critical",
-        "url": "https://twitter.com/i/status/mock003",
-    },
-    {
-        "platform": "facebook",
-        "event_type": "comment",
-        "external_id": "mock-fb-001",
-        "author": "김제조 팀장",
-        "text": "CES 2025 부스 미팅 신청하고 싶습니다. 연락처를 남겨주세요.",
-        "sentiment": "neutral",
-        "severity": "info",
-        "url": None,
-    },
-    {
-        "platform": "facebook",
-        "event_type": "comment",
-        "external_id": "mock-fb-002",
-        "author": "익명",
-        "text": "협업 로봇에 하자가 있다는 소문이 있는데 사실인가요? 환불이나 보상 가능한지요",
-        "sentiment": "negative",
-        "severity": "warning",
-        "url": None,
-    },
-]
 
 _MOCK_NOTIFICATIONS = [
     {
@@ -128,28 +76,102 @@ _MOCK_NOTIFICATIONS = [
     },
 ]
 
+# 7일 전 스냅샷 (비교 기준)
+_MOCK_SNAPSHOTS_PREV = [
+    {
+        "platform": "x",
+        "followers": 3112,
+        "following": 284,
+        "post_count": 218,
+        "extra": {"likes_avg": 38, "retweets_avg": 9, "comments_avg": 4, "reach_7d": 14200, "engagement_rate": 1.8},
+        "captured_at": "datetime('now', '-7 days')",
+    },
+    {
+        "platform": "facebook",
+        "followers": 8707,
+        "following": 0,
+        "post_count": 143,
+        "extra": {"likes_avg": 112, "shares_avg": 21, "comments_avg": 18, "reach_7d": 31400, "engagement_rate": 2.1},
+        "captured_at": "datetime('now', '-7 days')",
+    },
+    {
+        "platform": "instagram",
+        "followers": 5305,
+        "following": 192,
+        "post_count": 97,
+        "extra": {"likes_avg": 163, "comments_avg": 14, "saves_avg": 32, "reach_7d": 22800, "engagement_rate": 3.4},
+        "captured_at": "datetime('now', '-7 days')",
+    },
+]
+
+# 현재 스냅샷
+_MOCK_SNAPSHOTS_NOW = [
+    {
+        "platform": "x",
+        "followers": 3240,
+        "following": 291,
+        "post_count": 226,
+        "extra": {"likes_avg": 47, "retweets_avg": 12, "comments_avg": 6, "reach_7d": 17600, "engagement_rate": 2.0},
+        "captured_at": "datetime('now')",
+    },
+    {
+        "platform": "facebook",
+        "followers": 8910,
+        "following": 0,
+        "post_count": 148,
+        "extra": {"likes_avg": 134, "shares_avg": 28, "comments_avg": 23, "reach_7d": 38500, "engagement_rate": 2.6},
+        "captured_at": "datetime('now')",
+    },
+    {
+        "platform": "instagram",
+        "followers": 5620,
+        "following": 198,
+        "post_count": 102,
+        "extra": {"likes_avg": 189, "comments_avg": 19, "saves_avg": 45, "reach_7d": 29100, "engagement_rate": 4.1},
+        "captured_at": "datetime('now')",
+    },
+]
+
 
 def seed_mock_data():
-    """DB가 비어 있을 때만 Mock 데이터 삽입."""
+    """각 테이블이 비어 있을 때만 Mock 데이터 삽입."""
     if os.getenv("API_MODE", "mock").lower() != "mock":
         return
 
     from src.db.migrations import get_conn
     with get_conn() as conn:
-        count = conn.execute("SELECT COUNT(*) FROM approval_queue").fetchone()[0]
-    if count > 0:
-        return
+        queue_count = conn.execute("SELECT COUNT(*) FROM approval_queue").fetchone()[0]
+        snap_count = conn.execute("SELECT COUNT(*) FROM account_snapshots").fetchone()[0]
 
-    for item in _MOCK_QUEUE_ITEMS:
-        queue_db.enqueue(item)
+    if queue_count == 0:
+        for item in _MOCK_QUEUE_ITEMS:
+            queue_db.enqueue(item)
+        for notif in _MOCK_NOTIFICATIONS:
+            events_db.insert_notification(
+                title=notif["title"],
+                body=notif["body"],
+                type_=notif["type"],
+                severity=notif["severity"],
+            )
 
-    for ev in _MOCK_EVENTS:
-        events_db.insert_event(ev)
+    if snap_count == 0:
+        _seed_snapshots(get_conn)
 
-    for notif in _MOCK_NOTIFICATIONS:
-        events_db.insert_notification(
-            title=notif["title"],
-            body=notif["body"],
-            type_=notif["type"],
-            severity=notif["severity"],
-        )
+
+def _seed_snapshots(get_conn_fn):
+    import json as _json
+    with get_conn_fn() as conn:
+        for snap in _MOCK_SNAPSHOTS_PREV + _MOCK_SNAPSHOTS_NOW:
+            conn.execute(
+                f"""INSERT INTO account_snapshots
+                    (platform, followers, following, post_count, extra_json, captured_at)
+                    VALUES (?, ?, ?, ?, ?, {snap['captured_at']})""",
+                (
+                    snap["platform"],
+                    snap["followers"],
+                    snap["following"],
+                    snap["post_count"],
+                    _json.dumps(snap["extra"], ensure_ascii=False),
+                ),
+            )
+        conn.commit()

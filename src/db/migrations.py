@@ -94,5 +94,18 @@ def init_db_extensions():
 
         conn.execute("INSERT OR IGNORE INTO monitor_cursors (platform) VALUES ('x')")
         conn.execute("INSERT OR IGNORE INTO monitor_cursors (platform) VALUES ('facebook')")
+        conn.execute("INSERT OR IGNORE INTO monitor_cursors (platform) VALUES ('instagram')")
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS account_snapshots (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                platform     TEXT NOT NULL,
+                followers    INTEGER DEFAULT 0,
+                following    INTEGER DEFAULT 0,
+                post_count   INTEGER DEFAULT 0,
+                extra_json   TEXT,
+                captured_at  TEXT DEFAULT (datetime('now'))
+            )
+        """)
 
         conn.commit()

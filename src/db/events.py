@@ -140,6 +140,30 @@ def get_cursor(platform: str) -> dict:
         return dict(row) if row else {"platform": platform, "last_since_id": None, "last_run_at": None, "last_error": None}
 
 
+def get_account_stats() -> list:
+    """플랫폼별 최신 스냅샷 + 7일 전 스냅샷을 묶어 변화량 계산."""
+    with get_conn() as conn:
+        platforms = ["x", "facebook", "instagram"]
+        result = []
+        for p in platforms:
+            rows = conn.execute(
+                "SELECT * FROM account_snapshots WHERE platform = ? ORDER BY captured_at DESC LIMIT 2",
+                (p,),
+            ).fetchall()
+            if not rows:
+                continue
+            now = dict(rows[0])
+            now["extra"] = json.loads(now.get("extra_json") or "{}")
+            prev = dict(rows[1]) if len(rows) > 1 else None
+            if prev:
+                prev["extra"] = json.loads(prev.get("extra_json") or "{}")
+                now["followers_delta"] = now["followers"] - prev["followers"]
+            else:
+                now["followers_delta"] = 0
+            result.append(now)
+        return result
+
+
 def update_cursor(platform: str, last_since_id: str = None, error: str = None):
     with get_conn() as conn:
         conn.execute(

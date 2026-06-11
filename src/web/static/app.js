@@ -5,6 +5,11 @@
 (function () {
   const es = new EventSource('/events');
 
+  // 페이지 이동/닫기 시 반드시 연결 종료 — 미종료 시 브라우저 연결 슬롯(6개) 소진
+  function closeSSE() { es.close(); }
+  window.addEventListener('beforeunload', closeSSE);
+  window.addEventListener('pagehide', closeSSE);
+
   // 초기 연결: 미열람 알림 수 반영
   es.addEventListener('init', function (e) {
     const data = JSON.parse(e.data);
@@ -28,7 +33,6 @@
         swap: 'afterbegin',
       });
     }
-    // 대시보드 이벤트 목록도 갱신 (있으면)
     const dashEvents = document.getElementById('dashboard-events');
     if (dashEvents && data.id) {
       htmx.ajax('GET', '/partial/monitor-event/' + data.id, {
@@ -38,14 +42,9 @@
     }
   });
 
-  // 큐 업데이트: 해당 행 새로고침 (이미 HTMX가 처리하므로 추가 작업 없음)
-  es.addEventListener('queue.updated', function () {
-    // 큐 페이지 Nav 배지를 새로고침하려면 페이지 리로드가 필요하지만
-    // HTMX가 이미 행을 교체하므로 여기서는 생략
-  });
+  es.addEventListener('queue.updated', function () {});
 
   es.onerror = function () {
-    // 연결 끊김 시 EventSource가 자동 재연결 시도
     console.warn('[SSE] 연결 끊김 — 자동 재연결 중...');
   };
 
@@ -54,10 +53,10 @@
     if (!el) return;
     if (count > 0) {
       el.textContent = count;
-      el.classList.remove('hidden');
+      el.classList.remove('nav-badge-hidden');
     } else {
       el.textContent = '0';
-      el.classList.add('hidden');
+      el.classList.add('nav-badge-hidden');
     }
   }
 

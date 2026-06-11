@@ -5,7 +5,9 @@ H-01: 모든 게시 전 DB에서 approved=1 재확인
 
 import asyncio
 import json
+import os
 import subprocess
+import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, Request
@@ -71,17 +73,22 @@ async def publish_content(
     if not item.get("approved"):
         return HTMLResponse("<tr><td colspan='6' class='text-red-600 p-4'>H-01: 승인되지 않은 콘텐츠입니다.</td></tr>")
 
+    api_mode = os.getenv("API_MODE", "mock").lower()
     try:
-        result = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: subprocess.run(
-                ["claude", "--workflow", ".claude/workflows/06_publish.js",
-                 "--args", json.dumps({"queue_id": queue_id})],
-                capture_output=True, text=True, cwd=str(_PROJECT_ROOT), timeout=120,
-            ),
-        )
-        if result.returncode == 0:
-            queue_db.log_publish(queue_id, item["platform"], status="success")
+        if api_mode == "mock":
+            mock_post_id = f"mock-{item['platform']}-{uuid.uuid4().hex[:8]}"
+            queue_db.log_publish(queue_id, item["platform"], platform_post_id=mock_post_id, status="success")
+            events_db.insert_notification(
+                title=f"[MOCK] 게시 완료 (ID: {queue_id})",
+                body=f"Mock 게시 ID: {mock_post_id}",
+                type_="publish_success",
+                severity="success",
+                queue_id=queue_id,
+            )
+            bus.publish({"type": "queue.updated", "id": queue_id, "status": "published"})
+        else:
+            post_id = _publish_live(item)
+            queue_db.log_publish(queue_id, item["platform"], platform_post_id=post_id, status="success")
             events_db.insert_notification(
                 title=f"게시 완료 (ID: {queue_id})",
                 type_="publish_success",
@@ -89,17 +96,6 @@ async def publish_content(
                 queue_id=queue_id,
             )
             bus.publish({"type": "queue.updated", "id": queue_id, "status": "published"})
-        else:
-            error_msg = (result.stderr or "알 수 없는 오류")[:300]
-            queue_db.log_publish(queue_id, item["platform"], status="error", error=error_msg)
-            events_db.insert_notification(
-                title=f"게시 실패 (ID: {queue_id})",
-                body=error_msg,
-                type_="api_error",
-                severity="critical",
-                queue_id=queue_id,
-            )
-            bus.publish({"type": "notification.new", "severity": "critical"})
     except Exception as exc:
         error_msg = str(exc)[:300]
         queue_db.log_publish(queue_id, item["platform"], status="error", error=error_msg)
@@ -112,6 +108,30 @@ async def publish_content(
 
     item = queue_db.get(queue_id)
     return templates.TemplateResponse(request, "partials/queue_row.html", {"item": item})
+
+
+def _publish_live(item: dict) -> str:
+    """H-01: 승인된 콘텐츠를 실제 플랫폼에 게시. 플랫폼별 클라이언트 호출."""
+    platform = item["platform"]
+    text = item.get("ko_text", "")
+
+    if platform == "x":
+        from src.api.x_client import post_tweet
+        result = post_tweet(text)
+        return result.get("id", "")
+    elif platform == "facebook":
+        from src.api.meta_client import post_to_page
+        result = post_to_page(text)
+        return result.get("id", "")
+    elif platform == "instagram":
+        from src.api.meta_client import post_to_instagram
+        image_url = item.get("image_url", "")
+        if not image_url:
+            raise ValueError("Instagram 게시에는 image_url이 필요합니다.")
+        result = post_to_instagram(image_url=image_url, caption=text)
+        return result.get("id", "")
+    else:
+        raise ValueError(f"지원하지 않는 플랫폼: {platform}")
 
 
 @router.patch("/notifications/{notif_id}/read", response_class=HTMLResponse)

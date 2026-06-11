@@ -1,0 +1,26 @@
+{% if results %}
+<div class="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+  <span class="font-bold">✓</span>
+  <span><strong>{{ results | join(', ') }}</strong> 콘텐츠 생성 완료 — 승인 대기열에 추가됐습니다.</span>
+</div>
+{% endif %}
+{% if errors %}
+<div class="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 {% if results %}mt-2{% endif %}">
+  <span class="font-bold mt-0.5">✕</span>
+  <div>
+    {% for e in errors %}<p>{{ e }}</p>{% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- OOB: 승인 대기열 tbody 갱신 -->
+<tbody id="queue-tbody" hx-swap-oob="true">
+  {% for item in items %}
+    {% include "partials/queue_row.html" %}
+  {% endfor %}
+  {% if not items %}
+  <tr>
+    <td colspan="6" class="py-16 text-center text-slate-400 text-sm">대기 중인 콘텐츠가 없습니다.</td>
+  </tr>
+  {% endif %}
+</tbody>
