@@ -59,7 +59,7 @@ async def dashboard(request: Request):
     event_counts = events_db.count_events_by_severity()
     monitor_info = _next_monitor_info()
     last_run = _last_monitor_info()
-    api_mode = os.getenv("API_MODE", "mock")
+    api_mode = "live" if os.getenv("ANTHROPIC_API_KEY") else "mock"
     account_stats = events_db.get_account_stats()
 
     return templates.TemplateResponse(request, "dashboard.html", {

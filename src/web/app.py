@@ -24,8 +24,8 @@ from src.web.routes import dashboard, actions, sse, generate, setup, cron
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from src.db import creds as creds_db
-    creds_db.load_all_to_env()
     init_db_extensions()
+    creds_db.load_all_to_env()
     seed_mock_data()
     bus.set_loop(asyncio.get_running_loop())
     yield
