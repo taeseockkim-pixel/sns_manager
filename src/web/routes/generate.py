@@ -44,6 +44,13 @@ _MOCK_TEMPLATES = {
         "hashtags_en": ["CIMON", "Manufacturing", "Cobot", "SmartFactory"],
         "score": 87.0,
     },
+    "threads": {
+        "ko": "CIMON의 {topic} 소식을 전합니다. 스마트 제조의 혁신을 함께 만들어갑니다. #CIMON #스마트팩토리 #제조혁신",
+        "en": "Latest update from CIMON on {topic}. Building the future of smart manufacturing together. #CIMON #SmartFactory",
+        "hashtags_ko": ["CIMON", "스마트팩토리", "제조혁신"],
+        "hashtags_en": ["CIMON", "SmartFactory"],
+        "score": 87.0,
+    },
 }
 
 
@@ -66,6 +73,7 @@ def _generate_live(platform: str, topic: str) -> dict:
         "x": "280자 이내, 간결하게, 해시태그 2-3개",
         "instagram": "캡션 스타일, 줄바꿈 활용, 해시태그 5-6개",
         "facebook": "자연스러운 문체, 이모지 1-2개, 해시태그 3-4개",
+        "threads": "500자 이내, 간결하게, 해시태그 2-3개",
     }.get(platform, "280자 이내")
 
     msg = client.messages.create(
@@ -103,8 +111,7 @@ async def generate_content(
     platforms: list[str] = Form(...),
     reviewer: str = Depends(verify_credentials),
 ):
-    api_mode = os.getenv("API_MODE", "mock").lower()
-    use_mock = api_mode == "mock" or not os.getenv("ANTHROPIC_API_KEY")
+    use_mock = not os.getenv("ANTHROPIC_API_KEY")
 
     results = []
     errors = []

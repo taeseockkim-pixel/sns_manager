@@ -1,5 +1,6 @@
 """
 API 자격증명 설정 및 OAuth 흐름 관리
+자격증명은 Neon PostgreSQL credentials 테이블에 저장 (Vercel 서버리스 호환)
 """
 
 import os
@@ -8,50 +9,19 @@ import time
 from pathlib import Path
 
 import requests
-from fastapi import APIRouter, Depends
-
-from src.api._ssl import ssl_verify
+from fastapi import APIRouter
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from src.web.auth import verify_credentials
+from src.api._ssl import ssl_verify
 
 router = APIRouter(prefix="/setup", tags=["setup"])
 
 _TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 
-_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
-
-# CSRF 방지용 일회성 state (PoC — 재시작 시 초기화)
 _threads_oauth_state: str | None = None
-
-
-def _update_env(updates: dict) -> None:
-    """config/.env 특정 키 값 업데이트 및 os.environ 즉시 반영."""
-    env_path = _PROJECT_ROOT / "config" / ".env"
-    lines = env_path.read_text(encoding="utf-8").splitlines()
-    written = set()
-
-    new_lines = []
-    for line in lines:
-        stripped = line.strip()
-        if "=" in stripped and not stripped.startswith("#"):
-            key = stripped.split("=", 1)[0].strip()
-            if key in updates:
-                new_lines.append(f"{key}={updates[key]}")
-                os.environ[key] = str(updates[key])
-                written.add(key)
-                continue
-        new_lines.append(line)
-
-    for key, val in updates.items():
-        if key not in written:
-            new_lines.append(f"{key}={val}")
-            os.environ[key] = str(val)
-
-    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
 def _cred_status() -> dict:
@@ -59,7 +29,7 @@ def _cred_status() -> dict:
         "META_APP_ID", "META_APP_SECRET", "META_PAGE_ACCESS_TOKEN",
         "META_PAGE_ID", "META_IG_USER_ID",
         "THREADS_APP_ID", "THREADS_APP_SECRET", "THREADS_USER_ID", "THREADS_ACCESS_TOKEN",
-        "X_API_KEY", "X_ACCESS_TOKEN",
+        "X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_TOKEN_SECRET", "X_BEARER_TOKEN",
         "ANTHROPIC_API_KEY",
     ]
     return {k: bool(os.environ.get(k)) for k in keys}
@@ -72,9 +42,19 @@ async def setup_page(request: Request):
     )
 
 
+@router.post("/creds", response_class=HTMLResponse)
+async def save_creds(request: Request):
+    from src.db import creds as creds_db
+    form = await request.form()
+    for key, value in form.items():
+        v = str(value).strip()
+        if v:
+            creds_db.upsert(key, v)
+    return RedirectResponse("/setup", status_code=303)
+
+
 @router.get("/instagram", response_class=HTMLResponse)
 async def fetch_instagram_id(request: Request):
-    """Page Access Token으로 IG Business Account ID를 자동 조회해 .env에 저장."""
     token = os.environ.get("META_PAGE_ACCESS_TOKEN", "")
     page_id = os.environ.get("META_PAGE_ID", "")
 
@@ -97,7 +77,9 @@ async def fetch_instagram_id(request: Request):
 
         ig_id = resp.json().get("instagram_business_account", {}).get("id", "")
         if ig_id:
-            _update_env({"META_IG_USER_ID": ig_id, "CIMON_IG_USER_ID": ig_id})
+            from src.db import creds as creds_db
+            creds_db.upsert("META_IG_USER_ID", ig_id)
+            creds_db.upsert("CIMON_IG_USER_ID", ig_id)
             msg = f"Instagram User ID 저장 완료: {ig_id}"
         else:
             msg = "페이지에 연결된 Instagram Business 계정이 없습니다. Meta Business Suite에서 Instagram 계정을 연결해 주세요."
@@ -114,15 +96,15 @@ async def fetch_instagram_id(request: Request):
 
 
 @router.get("/threads/auth")
-async def threads_auth_redirect():
-    """Threads OAuth 인증 URL로 리다이렉트."""
+async def threads_auth_redirect(request: Request):
     global _threads_oauth_state
     app_id = os.environ.get("THREADS_APP_ID", "")
     if not app_id:
         return HTMLResponse("THREADS_APP_ID가 설정되지 않았습니다.", status_code=400)
 
     _threads_oauth_state = secrets.token_urlsafe(16)
-    redirect_uri = "http://localhost:8000/setup/threads/callback"
+    base_url = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base_url}/setup/threads/callback"
     auth_url = (
         f"https://threads.net/oauth/authorize"
         f"?client_id={app_id}"
@@ -141,7 +123,6 @@ async def threads_auth_callback(
     state: str = None,
     error: str = None,
 ):
-    """Threads OAuth 콜백 — code를 장기 액세스 토큰으로 교환."""
     global _threads_oauth_state
 
     if error:
@@ -166,10 +147,10 @@ async def threads_auth_callback(
 
     app_id = os.environ.get("THREADS_APP_ID", "")
     app_secret = os.environ.get("THREADS_APP_SECRET", "")
-    redirect_uri = "http://localhost:8000/setup/threads/callback"
+    base_url = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base_url}/setup/threads/callback"
 
     try:
-        # Step 1: 단기 액세스 토큰 교환
         token_resp = requests.post(
             "https://graph.threads.net/oauth/access_token",
             data={
@@ -189,7 +170,6 @@ async def threads_auth_callback(
         short_token = token_data.get("access_token", "")
         user_id = str(token_data.get("user_id", ""))
 
-        # Step 2: 장기 액세스 토큰 교환 (60일)
         long_resp = requests.get(
             "https://graph.threads.net/access_token",
             params={
@@ -202,11 +182,10 @@ async def threads_auth_callback(
         )
         long_token = long_resp.json().get("access_token", short_token) if long_resp.ok else short_token
 
-        _update_env({
-            "THREADS_USER_ID": user_id,
-            "THREADS_ACCESS_TOKEN": long_token,
-            "THREADS_TOKEN_REFRESHED_AT": str(int(time.time())),
-        })
+        from src.db import creds as creds_db
+        creds_db.upsert("THREADS_USER_ID", user_id)
+        creds_db.upsert("THREADS_ACCESS_TOKEN", long_token)
+        creds_db.upsert("THREADS_TOKEN_REFRESHED_AT", str(int(time.time())))
 
         return templates.TemplateResponse(
             request, "setup.html",

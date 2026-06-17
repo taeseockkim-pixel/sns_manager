@@ -95,3 +95,11 @@ def init_db_extensions():
                 captured_at TIMESTAMP DEFAULT NOW()
             )
         """)
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS credentials (
+                key        TEXT PRIMARY KEY,
+                value      TEXT NOT NULL,
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
