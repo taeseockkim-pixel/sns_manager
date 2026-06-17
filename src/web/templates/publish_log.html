@@ -3,22 +3,29 @@
 
 {% block content %}
 <div class="mb-8">
-  <h1 class="text-3xl font-bold text-gray-900 tracking-tight">게시 이력</h1>
-  <p class="text-sm text-gray-500 mt-1.5">H-08 — 모든 게시 활동 감사 추적</p>
+  <h1 class="text-2xl font-bold text-gray-900 tracking-tight">게시 이력</h1>
+  <p class="text-sm text-gray-400 mt-1">H-08 — 모든 게시 활동 감사 추적</p>
 </div>
 
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+<!-- 01 게시 로그 -->
+<div class="section-label">
+  <span class="section-label-num">01</span>
+  <span class="section-label-text">게시 로그</span>
+  <div class="section-label-line"></div>
+</div>
+
+<div class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
   {% if logs %}
   <table class="w-full text-sm">
-    <thead class="border-b border-gray-100" style="background:#f9fafb;">
+    <thead class="bg-gray-50 border-b border-gray-200">
       <tr>
-        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-14">ID</th>
-        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">플랫폼</th>
-        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">상태</th>
-        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">주제 / 내용</th>
-        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">점수</th>
-        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">승인자</th>
-        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-36">게시 시각</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-14">ID</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">플랫폼</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">상태</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">주제 / 내용</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">점수</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">승인자</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">게시 시각</th>
       </tr>
     </thead>
     <tbody class="divide-y divide-gray-100">
@@ -28,19 +35,19 @@
 
         <td class="px-5 py-4">
           {% if log.platform == 'x' %}
-          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-white font-bold text-xs" style="background:#111827;">X</span>
+          <span class="inline-flex items-center justify-center w-6 h-6 rounded text-white font-bold text-xs" style="background:#111827;">X</span>
           {% elif log.platform == 'facebook' %}
-          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-white font-bold text-xs" style="background:#1877f2;">f</span>
+          <span class="inline-flex items-center justify-center w-6 h-6 rounded text-white font-bold text-xs" style="background:#1877f2;">f</span>
           {% else %}
-          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-white font-bold" style="background:linear-gradient(135deg,#e6683c,#cc2366);font-size:9px;">IG</span>
+          <span class="inline-flex items-center justify-center w-6 h-6 rounded text-white font-bold" style="background:linear-gradient(135deg,#e6683c,#cc2366);font-size:9px;">IG</span>
           {% endif %}
         </td>
 
         <td class="px-5 py-4">
           {% if log.status == 'success' %}
-          <span class="text-xs font-semibold text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200">✓ 성공</span>
+          <span class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">성공</span>
           {% else %}
-          <span class="text-xs font-semibold text-red-600 bg-red-50 px-2.5 py-1 rounded-full border border-red-200">✕ 실패</span>
+          <span class="text-xs font-semibold text-red-600 bg-red-50 px-2.5 py-1 rounded border border-red-200">실패</span>
           {% endif %}
         </td>
 
@@ -59,7 +66,7 @@
 
         <td class="px-5 py-4">
           {% if log.brand_safety_score %}
-          <span class="text-sm font-bold {% if log.brand_safety_score >= 80 %}text-green-600{% else %}text-red-500{% endif %}">
+          <span class="text-sm font-bold {% if log.brand_safety_score >= 80 %}text-emerald-600{% else %}text-red-500{% endif %} tabular-nums">
             {{ "%.0f"|format(log.brand_safety_score) }}
           </span>
           {% else %}
@@ -69,7 +76,7 @@
 
         <td class="px-5 py-4 text-xs text-gray-500">{{ log.reviewed_by or '—' }}</td>
 
-        <td class="px-5 py-4 text-xs text-gray-400">
+        <td class="px-5 py-4 text-xs text-gray-400 tabular-nums">
           {{ log.published_at[:16] if log.published_at else '—' }}
         </td>
       </tr>
@@ -77,7 +84,7 @@
     </tbody>
   </table>
   {% else %}
-  <div class="py-20 text-center">
+  <div class="py-16 text-center">
     <p class="text-gray-400 text-sm">게시 이력이 없습니다.</p>
   </div>
   {% endif %}

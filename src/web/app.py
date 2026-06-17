@@ -3,9 +3,13 @@ FastAPI 앱 — lifespan, 라우터 마운트, 정적 파일
 """
 
 import asyncio
-import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+_ENV_PATH = Path(__file__).resolve().parent.parent.parent / "config" / ".env"
+load_dotenv(_ENV_PATH, override=True)
 
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
@@ -14,8 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from src.db.migrations import init_db_extensions
 from src.db.seed import seed_mock_data
 from src.notify import bus
-from src.scheduler import runner
-from src.web.routes import dashboard, actions, sse, generate
+from src.web.routes import dashboard, actions, sse, generate, setup, cron
 
 
 @asynccontextmanager
@@ -23,9 +26,7 @@ async def lifespan(app: FastAPI):
     init_db_extensions()
     seed_mock_data()
     bus.set_loop(asyncio.get_running_loop())
-    runner.scheduler.start()
     yield
-    runner.scheduler.shutdown(wait=False)
 
 
 app = FastAPI(
@@ -49,3 +50,5 @@ app.include_router(dashboard.router)
 app.include_router(actions.router)
 app.include_router(sse.router)
 app.include_router(generate.router)
+app.include_router(setup.router)
+app.include_router(cron.router)

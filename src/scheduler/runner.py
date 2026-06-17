@@ -1,19 +1,5 @@
 """
-APScheduler BackgroundScheduler 초기화 및 등록
+Vercel 서버리스 환경에서는 APScheduler 사용 불가.
+스케줄 작업은 /cron/* HTTP 엔드포인트(src/web/routes/cron.py)로 대체되며
+vercel.json의 crons 설정으로 호출된다.
 """
-
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
-
-from src.scheduler.jobs import hourly_monitor_job
-
-scheduler = BackgroundScheduler(timezone="Asia/Seoul")
-
-scheduler.add_job(
-    hourly_monitor_job,
-    trigger=IntervalTrigger(hours=1),
-    id="hourly_monitor",
-    coalesce=True,
-    max_instances=1,
-    misfire_grace_time=300,
-)

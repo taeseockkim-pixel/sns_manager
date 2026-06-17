@@ -3,40 +3,47 @@
 
 {% block content %}
 <div class="mb-8">
-  <h1 class="text-3xl font-bold text-gray-900 tracking-tight">승인 대기열</h1>
-  <p class="text-sm text-gray-500 mt-1.5">H-01 원칙 — 모든 게시물은 담당자 승인 후에만 게시됩니다</p>
+  <h1 class="text-2xl font-bold text-gray-900 tracking-tight">승인 대기열</h1>
+  <p class="text-sm text-gray-400 mt-1">H-01 원칙 — 모든 게시물은 담당자 승인 후에만 게시됩니다</p>
 </div>
 
-<!-- 콘텐츠 생성 폼 -->
-<div class="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-  <h2 class="text-sm font-semibold text-gray-700 mb-3">새 콘텐츠 생성</h2>
+<!-- 01 콘텐츠 생성 -->
+<div class="section-label">
+  <span class="section-label-num">01</span>
+  <span class="section-label-text">새 콘텐츠 생성</span>
+  <div class="section-label-line"></div>
+</div>
+
+<div class="bg-white rounded-lg border border-gray-200 p-5 mb-8 shadow-sm">
   <form hx-post="/generate" hx-target="#generate-result" hx-swap="innerHTML" hx-indicator="#generate-spinner"
         accept-charset="UTF-8">
-    <div class="flex flex-wrap gap-4 items-end">
+    <div class="flex flex-wrap gap-5 items-end">
       <div class="flex-1 min-w-56">
-        <label class="block text-xs font-medium text-gray-500 mb-1.5">주제</label>
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">주제</label>
         <input type="text" name="topic" required
                placeholder="예: CIMON 협동로봇 신제품 출시"
-               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 transition-colors">
+               class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors">
       </div>
       <div>
-        <label class="block text-xs font-medium text-gray-500 mb-1.5">플랫폼</label>
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">플랫폼</label>
         <div class="flex gap-4">
-          <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-            <input type="checkbox" name="platforms" value="x" checked class="rounded border-gray-300 text-gray-900"> X
+          <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+            <input type="checkbox" name="platforms" value="x" checked class="rounded border-gray-300 text-indigo-600"> X
           </label>
-          <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-            <input type="checkbox" name="platforms" value="instagram" checked class="rounded border-gray-300 text-gray-900"> Instagram
+          <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+            <input type="checkbox" name="platforms" value="instagram" checked class="rounded border-gray-300 text-indigo-600"> Instagram
           </label>
-          <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
-            <input type="checkbox" name="platforms" value="facebook" checked class="rounded border-gray-300 text-gray-900"> Facebook
+          <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+            <input type="checkbox" name="platforms" value="facebook" checked class="rounded border-gray-300 text-indigo-600"> Facebook
+          </label>
+          <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+            <input type="checkbox" name="platforms" value="threads" class="rounded border-gray-300 text-indigo-600"> Threads
           </label>
         </div>
       </div>
       <div class="flex items-center gap-2">
         <button type="submit"
-                class="px-4 py-2 text-sm font-semibold text-white rounded-lg transition-colors"
-                style="background:#111827;" onmouseover="this.style.background='#1f2937'" onmouseout="this.style.background='#111827'">
+                class="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
           생성
         </button>
         <span id="generate-spinner" class="htmx-indicator text-xs text-gray-400">생성 중…</span>
@@ -46,45 +53,52 @@
   <div id="generate-result" class="mt-3"></div>
 </div>
 
-<!-- 탭 -->
-<div class="flex gap-1 mb-5 bg-white border border-gray-200 rounded-xl p-1 w-fit">
+<!-- 02 대기열 목록 -->
+<div class="section-label">
+  <span class="section-label-num">02</span>
+  <span class="section-label-text">대기열 목록</span>
+  <div class="section-label-line"></div>
+</div>
+
+<!-- 탭 (언더라인 스타일) -->
+<div class="flex border-b border-gray-200 mb-5 gap-0">
   <a href="/queue?status=pending"
-     class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors
-            {% if status == 'pending' %}bg-gray-900 text-white{% else %}text-gray-500 hover:bg-gray-100{% endif %}">
+     class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px
+            {% if status == 'pending' %}border-indigo-600 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
     대기중
     {% if counts.pending > 0 %}
-    <span class="ml-1.5 {% if status == 'pending' %}bg-white/20{% else %}bg-amber-500{% endif %} text-white text-xs rounded-full px-1.5 py-0.5 font-bold">{{ counts.pending }}</span>
+    <span class="ml-1.5 {% if status == 'pending' %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-600{% endif %} text-xs rounded-full px-1.5 py-0.5 font-bold">{{ counts.pending }}</span>
     {% endif %}
   </a>
   <a href="/queue?status=approved"
-     class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors
-            {% if status == 'approved' %}bg-gray-900 text-white{% else %}text-gray-500 hover:bg-gray-100{% endif %}">
-    승인됨 <span class="ml-1 text-xs {% if status == 'approved' %}text-white/60{% else %}text-gray-400{% endif %}">{{ counts.approved }}</span>
+     class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px
+            {% if status == 'approved' %}border-indigo-600 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+    승인됨 <span class="ml-1 text-xs text-gray-400">{{ counts.approved }}</span>
   </a>
   <a href="/queue?status=rejected"
-     class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors
-            {% if status == 'rejected' %}bg-gray-900 text-white{% else %}text-gray-500 hover:bg-gray-100{% endif %}">
-    반려됨 <span class="ml-1 text-xs {% if status == 'rejected' %}text-white/60{% else %}text-gray-400{% endif %}">{{ counts.rejected }}</span>
+     class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px
+            {% if status == 'rejected' %}border-indigo-600 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+    반려됨 <span class="ml-1 text-xs text-gray-400">{{ counts.rejected }}</span>
   </a>
   <a href="/queue?status=all"
-     class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors
-            {% if status == 'all' %}bg-gray-900 text-white{% else %}text-gray-500 hover:bg-gray-100{% endif %}">
+     class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px
+            {% if status == 'all' %}border-indigo-600 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
     전체
   </a>
 </div>
 
 <!-- 테이블 -->
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+<div class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
   {% if items %}
   <table class="w-full text-sm">
-    <thead class="border-b border-gray-100" style="background:#f9fafb;">
+    <thead class="bg-gray-50 border-b border-gray-200">
       <tr>
-        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-14">ID</th>
-        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">플랫폼</th>
-        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">점수</th>
-        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">콘텐츠</th>
-        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-36">등록 시각</th>
-        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-44">액션</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-14">ID</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">플랫폼</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">점수</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">콘텐츠</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">등록 시각</th>
+        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-44">액션</th>
       </tr>
     </thead>
     <tbody class="divide-y divide-gray-100" id="queue-tbody">
@@ -94,7 +108,7 @@
     </tbody>
   </table>
   {% else %}
-  <div class="py-20 text-center">
+  <div class="py-16 text-center">
     <p class="text-gray-400 text-sm">
       {% if status == 'pending' %}대기 중인 콘텐츠가 없습니다.
       {% elif status == 'approved' %}승인된 콘텐츠가 없습니다.

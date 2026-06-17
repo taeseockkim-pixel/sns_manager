@@ -4,15 +4,15 @@
 {% block content %}
 <div class="flex items-start justify-between mb-8">
   <div>
-    <h1 class="text-3xl font-bold text-gray-900 tracking-tight">알림</h1>
-    <p class="text-sm text-gray-500 mt-1.5">모니터링 이슈, 게시 결과, API 오류 통합 피드</p>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">알림</h1>
+    <p class="text-sm text-gray-400 mt-1">모니터링 이슈, 게시 결과, API 오류 통합 피드</p>
   </div>
   {% if unread_count > 0 %}
   <button
     hx-post="/notifications/read-all"
     hx-target="#notif-count-wrapper"
     hx-swap="outerHTML"
-    class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+    class="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
     전체 읽음 처리 ({{ unread_count }})
   </button>
   {% endif %}
@@ -24,7 +24,14 @@
   {% endif %}
 </div>
 
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+<!-- 01 알림 목록 -->
+<div class="section-label">
+  <span class="section-label-num">01</span>
+  <span class="section-label-text">알림 목록</span>
+  <div class="section-label-line"></div>
+</div>
+
+<div class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
   {% if notifications %}
   <div class="divide-y divide-gray-100" id="notifications-list">
     {% for notif in notifications %}
@@ -32,7 +39,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="py-20 text-center">
+  <div class="py-16 text-center">
     <p class="text-gray-400 text-sm">알림이 없습니다.</p>
   </div>
   {% endif %}

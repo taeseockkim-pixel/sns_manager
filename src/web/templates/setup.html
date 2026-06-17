@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}API 설정 — CIMON SNS Manager{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <h1 class="text-3xl font-bold text-gray-900 tracking-tight">API 설정</h1>
+  <p class="text-sm text-gray-500 mt-1.5">플랫폼 자격증명 현황 및 OAuth 연결 관리</p>
+</div>
+
+{% if success %}
+<div class="bg-green-50 border border-green-200 rounded-xl px-5 py-3.5 mb-5 text-sm text-green-700 font-medium">
+  {{ success }}
+</div>
+{% endif %}
+
+{% if error %}
+<div class="bg-red-50 border border-red-200 rounded-xl px-5 py-3.5 mb-5 text-sm text-red-700">
+  {{ error }}
+</div>
+{% endif %}
+
+{% macro status_dot(ok) %}
+  {% if ok %}<span class="inline-block w-2 h-2 rounded-full bg-green-500 shrink-0"></span>
+  {% else %}<span class="inline-block w-2 h-2 rounded-full bg-red-400 shrink-0"></span>{% endif %}
+{% endmacro %}
+
+<!-- Facebook -->
+<div class="bg-white rounded-xl border border-gray-200 mb-4">
+  <div class="px-5 py-3.5 border-b border-gray-100 flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:#1877f2;">
+      <span class="text-white font-bold text-sm">f</span>
+    </div>
+    <h2 class="text-sm font-semibold text-gray-800">Facebook</h2>
+    {% if creds['META_APP_ID'] and creds['META_APP_SECRET'] and creds['META_PAGE_ACCESS_TOKEN'] and creds['META_PAGE_ID'] %}
+    <span class="ml-auto text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full border border-green-100">연결됨</span>
+    {% else %}
+    <span class="ml-auto text-xs text-amber-600 font-semibold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">미설정 항목 있음</span>
+    {% endif %}
+  </div>
+  <div class="px-5 py-4 grid grid-cols-2 gap-2.5">
+    {% for key in ['META_APP_ID', 'META_APP_SECRET', 'META_PAGE_ACCESS_TOKEN', 'META_PAGE_ID'] %}
+    <div class="flex items-center gap-2">
+      {{ status_dot(creds[key]) }}
+      <span class="text-xs text-gray-600 font-mono">{{ key }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Instagram -->
+<div class="bg-white rounded-xl border border-gray-200 mb-4">
+  <div class="px-5 py-3.5 border-b border-gray-100 flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+         style="background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);">
+      <span class="text-white font-bold text-xs">IG</span>
+    </div>
+    <h2 class="text-sm font-semibold text-gray-800">Instagram</h2>
+    {% if creds['META_IG_USER_ID'] %}
+    <span class="ml-auto text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full border border-green-100">연결됨</span>
+    {% elif creds['META_PAGE_ACCESS_TOKEN'] and creds['META_PAGE_ID'] %}
+    <a href="/setup/instagram"
+       class="ml-auto px-3 py-1.5 text-xs font-semibold text-white rounded-lg transition-colors"
+       style="background:#111827;">
+      IG 계정 자동 조회
+    </a>
+    {% endif %}
+  </div>
+  <div class="px-5 py-4">
+    <div class="flex items-center gap-2">
+      {{ status_dot(creds['META_IG_USER_ID']) }}
+      <span class="text-xs text-gray-600 font-mono">META_IG_USER_ID</span>
+      {% if not creds['META_IG_USER_ID'] %}
+      <span class="text-xs text-gray-400 ml-1">— Facebook 페이지에 Instagram Business 계정 연결 필요</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Threads -->
+<div class="bg-white rounded-xl border border-gray-200 mb-4">
+  <div class="px-5 py-3.5 border-b border-gray-100 flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center shrink-0">
+      <span class="text-white font-bold" style="font-size:14px;">@</span>
+    </div>
+    <h2 class="text-sm font-semibold text-gray-800">Threads</h2>
+    {% if creds['THREADS_ACCESS_TOKEN'] %}
+    <span class="ml-auto text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full border border-green-100">연결됨</span>
+    {% elif creds['THREADS_APP_ID'] and creds['THREADS_APP_SECRET'] %}
+    <a href="/setup/threads/auth"
+       class="ml-auto px-3 py-1.5 text-xs font-semibold text-white rounded-lg transition-colors"
+       style="background:#111827;">
+      Threads OAuth 연결
+    </a>
+    {% endif %}
+  </div>
+  <div class="px-5 py-4 grid grid-cols-2 gap-2.5">
+    {% for key in ['THREADS_APP_ID', 'THREADS_APP_SECRET', 'THREADS_USER_ID', 'THREADS_ACCESS_TOKEN'] %}
+    <div class="flex items-center gap-2">
+      {{ status_dot(creds[key]) }}
+      <span class="text-xs text-gray-600 font-mono">{{ key }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% if creds['THREADS_APP_ID'] and creds['THREADS_APP_SECRET'] and not creds['THREADS_ACCESS_TOKEN'] %}
+  <div class="px-5 pb-4">
+    <div class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-4 py-3 leading-relaxed">
+      <strong>사전 준비:</strong> OAuth 연결 전, Meta 개발자 포털 → 앱 설정 → Threads → 리다이렉트 URI에
+      <code class="bg-amber-100 px-1 rounded font-mono">http://localhost:8000/setup/threads/callback</code> 을 등록해야 합니다.
+    </div>
+  </div>
+  {% endif %}
+  {% if creds['THREADS_ACCESS_TOKEN'] %}
+  <div class="px-5 pb-4">
+    <div class="text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
+      장기 토큰(60일) 만료 시 "Threads OAuth 연결" 버튼을 다시 클릭하여 갱신하세요.
+      <a href="/setup/threads/auth" class="underline ml-1">재연결</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- X (Twitter) -->
+<div class="bg-white rounded-xl border border-gray-200 mb-4">
+  <div class="px-5 py-3.5 border-b border-gray-100 flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center shrink-0">
+      <span class="text-white font-bold text-sm">X</span>
+    </div>
+    <h2 class="text-sm font-semibold text-gray-800">X (Twitter)</h2>
+    {% if creds['X_API_KEY'] and creds['X_ACCESS_TOKEN'] %}
+    <span class="ml-auto text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full border border-green-100">연결됨</span>
+    {% else %}
+    <span class="ml-auto text-xs text-gray-400 font-medium text-xs">config/.env 직접 수정</span>
+    {% endif %}
+  </div>
+  <div class="px-5 py-4 grid grid-cols-2 gap-2.5">
+    {% for key in ['X_API_KEY', 'X_ACCESS_TOKEN'] %}
+    <div class="flex items-center gap-2">
+      {{ status_dot(creds[key]) }}
+      <span class="text-xs text-gray-600 font-mono">{{ key }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Anthropic -->
+<div class="bg-white rounded-xl border border-gray-200 mb-4">
+  <div class="px-5 py-3.5 border-b border-gray-100 flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:#d97706;">
+      <span class="text-white font-bold text-xs">AI</span>
+    </div>
+    <h2 class="text-sm font-semibold text-gray-800">Anthropic (Claude API)</h2>
+    {% if creds['ANTHROPIC_API_KEY'] %}
+    <span class="ml-auto text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full border border-green-100">Live 모드 가능</span>
+    {% else %}
+    <span class="ml-auto text-xs text-amber-600 font-medium">Mock 모드만 가능</span>
+    {% endif %}
+  </div>
+  <div class="px-5 py-4">
+    <div class="flex items-center gap-2">
+      {{ status_dot(creds['ANTHROPIC_API_KEY']) }}
+      <span class="text-xs text-gray-600 font-mono">ANTHROPIC_API_KEY</span>
+      {% if not creds['ANTHROPIC_API_KEY'] %}
+      <span class="text-xs text-gray-400 ml-1">— config/.env에 직접 입력</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

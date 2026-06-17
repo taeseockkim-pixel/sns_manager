@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/main.py"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/cron/hourly-monitor",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/cron/daily-meta-token",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/cron/daily-threads-token",
+      "schedule": "10 0 * * *"
+    }
+  ]
+}

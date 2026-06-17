@@ -5,83 +5,67 @@
 <!-- 페이지 헤더 -->
 <div class="flex items-start justify-between mb-8">
   <div>
-    <h1 class="text-3xl font-bold text-gray-900 tracking-tight">대시보드</h1>
-    <p class="text-sm text-gray-500 mt-1.5">마지막 모니터링: {{ last_run }}</p>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">대시보드</h1>
+    <p class="text-sm text-gray-400 mt-1">마지막 모니터링: {{ last_run }}</p>
   </div>
   {% if monitor_info.remaining_seconds > 0 %}
-  <div class="bg-white border border-gray-200 rounded-xl px-5 py-3 text-right">
+  <div class="bg-white border border-gray-200 rounded-lg px-5 py-3 text-right shadow-sm">
     <p class="text-xs text-gray-400 font-medium">다음 모니터링</p>
-    <p class="text-xl font-bold text-gray-900 mt-0.5" id="next-monitor-time">{{ monitor_info.remaining }}</p>
+    <p class="text-xl font-bold text-gray-900 mt-0.5 tabular-nums" id="next-monitor-time">{{ monitor_info.remaining }}</p>
     <p class="text-xs text-gray-400 mt-0.5">{{ monitor_info.next_run }} 예정</p>
   </div>
   {% endif %}
 </div>
 
-<!-- 요약 카드 4개 -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+<!-- 01 현황 요약 -->
+<div class="section-label">
+  <span class="section-label-num">01</span>
+  <span class="section-label-text">현황 요약</span>
+  <div class="section-label-line"></div>
+</div>
 
-  <a href="/queue?status=pending" class="bg-white rounded-xl border border-gray-200 p-5 hover:border-gray-300 transition-colors group">
-    <div class="flex items-start justify-between">
-      <div>
-        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">승인 대기</p>
-        <p class="text-4xl font-bold text-amber-500 mt-2 leading-none">{{ counts.pending }}</p>
-        <p class="text-xs text-gray-400 mt-2">검토 필요</p>
-      </div>
-      <div class="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center border border-amber-100">
-        <span class="text-amber-500 text-base">⏳</span>
-      </div>
-    </div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+
+  <a href="/queue?status=pending" class="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-sm hover:border-gray-300 transition-all">
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">승인 대기</p>
+    <p class="text-4xl font-bold text-amber-500 mt-2 leading-none tabular-nums">{{ counts.pending }}</p>
+    <p class="text-xs text-gray-400 mt-2.5">검토 필요</p>
   </a>
 
-  <a href="/publish-log" class="bg-white rounded-xl border border-gray-200 p-5 hover:border-gray-300 transition-colors group">
-    <div class="flex items-start justify-between">
-      <div>
-        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">오늘 게시</p>
-        <p class="text-4xl font-bold text-green-600 mt-2 leading-none">{{ today_published }}</p>
-        <p class="text-xs text-gray-400 mt-2">성공 건수</p>
-      </div>
-      <div class="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center border border-green-100">
-        <span class="text-green-600 text-base">✓</span>
-      </div>
-    </div>
+  <a href="/publish-log" class="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-sm hover:border-gray-300 transition-all">
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">오늘 게시</p>
+    <p class="text-4xl font-bold text-emerald-600 mt-2 leading-none tabular-nums">{{ today_published }}</p>
+    <p class="text-xs text-gray-400 mt-2.5">성공 건수</p>
   </a>
 
-  <a href="/monitoring?severity=critical" class="bg-white rounded-xl border border-gray-200 p-5 hover:border-gray-300 transition-colors group">
-    <div class="flex items-start justify-between">
-      <div>
-        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">감지 이슈</p>
-        <p class="text-4xl font-bold text-red-500 mt-2 leading-none">{{ event_counts.get('critical', 0) + event_counts.get('warning', 0) }}</p>
-        <p class="text-xs text-gray-400 mt-2">critical + warning</p>
-      </div>
-      <div class="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center border border-red-100">
-        <span class="text-red-500 text-base">⚠</span>
-      </div>
-    </div>
+  <a href="/monitoring?severity=critical" class="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-sm hover:border-gray-300 transition-all">
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">감지 이슈</p>
+    <p class="text-4xl font-bold text-red-500 mt-2 leading-none tabular-nums">{{ event_counts.get('critical', 0) + event_counts.get('warning', 0) }}</p>
+    <p class="text-xs text-gray-400 mt-2.5">critical + warning</p>
   </a>
 
-  <a href="/notifications" class="bg-white rounded-xl border border-gray-200 p-5 hover:border-gray-300 transition-colors group">
-    <div class="flex items-start justify-between">
-      <div>
-        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">미열람 알림</p>
-        <p class="text-4xl font-bold text-blue-600 mt-2 leading-none">{{ unread_count }}</p>
-        <p class="text-xs text-gray-400 mt-2">확인 필요</p>
-      </div>
-      <div class="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center border border-blue-100">
-        <span class="text-blue-600 text-base">🔔</span>
-      </div>
-    </div>
+  <a href="/notifications" class="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-sm hover:border-gray-300 transition-all">
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">미열람 알림</p>
+    <p class="text-4xl font-bold text-indigo-600 mt-2 leading-none tabular-nums">{{ unread_count }}</p>
+    <p class="text-xs text-gray-400 mt-2.5">확인 필요</p>
   </a>
 
 </div>
 
-<!-- 플랫폼 계정 지표 -->
-<div class="bg-white rounded-xl border border-gray-200 mb-6">
-  <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
-    <h2 class="text-sm font-semibold text-gray-700">플랫폼 계정 지표</h2>
+<!-- 02 플랫폼 계정 지표 -->
+<div class="section-label">
+  <span class="section-label-num">02</span>
+  <span class="section-label-text">플랫폼 계정 지표</span>
+  <div class="section-label-line"></div>
+</div>
+
+<div class="bg-white rounded-lg border border-gray-200 mb-10 shadow-sm">
+  <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+    <span class="text-xs text-gray-500">SNS 계정 현황</span>
     {% if api_mode == 'mock' %}
-    <span class="text-xs text-amber-500 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">Mock 데이터</span>
+    <span class="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded border border-amber-100">Mock 데이터</span>
     {% else %}
-    <span class="text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full border border-green-100">실시간 API</span>
+    <span class="text-xs text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">실시간 API</span>
     {% endif %}
   </div>
   <div class="grid grid-cols-3 divide-x divide-gray-100">
@@ -94,64 +78,64 @@
     {% set meta = platform_meta.get(stat.platform, {'label': stat.platform, 'icon': '?', 'bg': '#6b7280'}) %}
     <div class="px-5 py-4">
       <div class="flex items-center gap-2.5 mb-3">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:{{ meta.bg }};">
-          <span class="text-white font-bold text-xs">{{ meta.icon }}</span>
+        <div class="w-7 h-7 rounded flex items-center justify-center shrink-0" style="background:{{ meta.bg }};">
+          <span class="text-white font-bold" style="font-size:10px;">{{ meta.icon }}</span>
         </div>
         <p class="font-semibold text-gray-800 text-sm">{{ meta.label }}</p>
       </div>
       <div class="space-y-1.5">
         <div class="flex items-baseline justify-between">
-          <span class="text-xs text-gray-500">팔로워</span>
-          <span class="text-sm font-bold text-gray-900">{{ "{:,}".format(stat.followers) }}</span>
+          <span class="text-xs text-gray-400">팔로워</span>
+          <span class="text-sm font-bold text-gray-900 tabular-nums">{{ "{:,}".format(stat.followers) }}</span>
         </div>
         <div class="flex items-baseline justify-between">
-          <span class="text-xs text-gray-500">7일 변화</span>
-          <span class="text-xs font-semibold {% if stat.followers_delta > 0 %}text-green-600{% elif stat.followers_delta < 0 %}text-red-500{% else %}text-gray-400{% endif %}">
-            {% if stat.followers_delta > 0 %}▲ +{{ stat.followers_delta }}{% elif stat.followers_delta < 0 %}▼ {{ stat.followers_delta }}{% else %}—{% endif %}
+          <span class="text-xs text-gray-400">7일 변화</span>
+          <span class="text-xs font-semibold {% if stat.followers_delta > 0 %}text-emerald-600{% elif stat.followers_delta < 0 %}text-red-500{% else %}text-gray-400{% endif %}">
+            {% if stat.followers_delta > 0 %}+{{ stat.followers_delta }}{% elif stat.followers_delta < 0 %}{{ stat.followers_delta }}{% else %}±0{% endif %}
           </span>
         </div>
         <div class="flex items-baseline justify-between">
-          <span class="text-xs text-gray-500">평균 좋아요</span>
-          <span class="text-xs font-medium text-gray-700">{{ stat.extra.get('likes_avg', '-') }}</span>
+          <span class="text-xs text-gray-400">평균 좋아요</span>
+          <span class="text-xs text-gray-600">{{ stat.extra.get('likes_avg', '—') }}</span>
         </div>
         <div class="flex items-baseline justify-between">
-          <span class="text-xs text-gray-500">인게이지먼트</span>
-          <span class="text-xs font-medium text-gray-700">{{ stat.extra.get('engagement_rate', '-') }}%</span>
+          <span class="text-xs text-gray-400">인게이지먼트</span>
+          <span class="text-xs text-gray-600">{{ stat.extra.get('engagement_rate', '—') }}%</span>
         </div>
       </div>
     </div>
     {% else %}
-    <div class="col-span-3 px-5 py-6 text-center text-sm text-gray-400">계정 데이터가 없습니다.</div>
+    <div class="col-span-3 px-5 py-8 text-center text-sm text-gray-400">계정 데이터가 없습니다.</div>
     {% endfor %}
   </div>
 </div>
 
-<!-- 2열 -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+<!-- 03 대기 목록 / 04 모니터링 이벤트 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-  <!-- 최근 승인 대기 -->
-  <div class="bg-white rounded-xl border border-gray-200">
-    <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
-      <h2 class="text-sm font-semibold text-gray-700">최근 승인 대기</h2>
-      <a href="/queue?status=pending" class="text-xs text-blue-600 hover:underline font-medium">전체 보기 →</a>
+  <!-- 03 최근 승인 대기 -->
+  <div>
+    <div class="section-label">
+      <span class="section-label-num">03</span>
+      <span class="section-label-text">최근 승인 대기</span>
+      <a href="/queue?status=pending" class="text-xs text-indigo-600 hover:underline font-medium ml-auto">전체 보기 →</a>
     </div>
-    <div class="divide-y divide-gray-50">
+    <div class="bg-white rounded-lg border border-gray-200 shadow-sm divide-y divide-gray-50">
       {% if recent_queue %}
         {% for item in recent_queue %}
         <div class="px-5 py-3.5">
           <div class="flex items-center gap-2 mb-1.5">
             {% if item.platform == 'x' %}
-            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-white font-bold" style="background:#111827;font-size:10px;">X</span>
+            <span class="inline-flex items-center justify-center w-5 h-5 rounded text-white font-bold" style="background:#111827;font-size:9px;">X</span>
             {% elif item.platform == 'facebook' %}
-            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-white font-bold" style="background:#1877f2;font-size:10px;">f</span>
+            <span class="inline-flex items-center justify-center w-5 h-5 rounded text-white font-bold" style="background:#1877f2;font-size:9px;">f</span>
             {% else %}
-            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-white font-bold"
-              style="background:linear-gradient(135deg,#e6683c,#cc2366);font-size:9px;">IG</span>
+            <span class="inline-flex items-center justify-center w-5 h-5 rounded text-white font-bold" style="background:linear-gradient(135deg,#e6683c,#cc2366);font-size:8px;">IG</span>
             {% endif %}
-            <span class="text-xs font-semibold {% if item.brand_safety_score >= 80 %}text-green-600{% else %}text-red-500{% endif %}">
+            <span class="text-xs font-semibold {% if item.brand_safety_score >= 80 %}text-emerald-600{% else %}text-red-500{% endif %}">
               {{ item.brand_safety_score|int }}점
             </span>
-            <span class="text-xs text-gray-400 ml-auto">{{ item.created_at[:16] if item.created_at else '' }}</span>
+            <span class="text-xs text-gray-400 ml-auto tabular-nums">{{ item.created_at[:16] if item.created_at else '' }}</span>
           </div>
           <p class="text-sm text-gray-700 truncate">{{ item.ko_text[:80] }}</p>
         </div>
@@ -162,29 +146,30 @@
     </div>
   </div>
 
-  <!-- 최근 모니터링 이벤트 -->
-  <div class="bg-white rounded-xl border border-gray-200">
-    <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
-      <h2 class="text-sm font-semibold text-gray-700">최근 모니터링 이벤트</h2>
-      <a href="/monitoring" class="text-xs text-blue-600 hover:underline font-medium">전체 보기 →</a>
+  <!-- 04 최근 모니터링 이벤트 -->
+  <div>
+    <div class="section-label">
+      <span class="section-label-num">04</span>
+      <span class="section-label-text">최근 모니터링 이벤트</span>
+      <a href="/monitoring" class="text-xs text-indigo-600 hover:underline font-medium ml-auto">전체 보기 →</a>
     </div>
-    <div id="dashboard-events" class="divide-y divide-gray-50">
+    <div id="dashboard-events" class="bg-white rounded-lg border border-gray-200 shadow-sm divide-y divide-gray-50">
       {% if recent_events %}
         {% for ev in recent_events %}
         <div class="px-5 py-3.5">
           <div class="flex items-center gap-2 mb-1.5">
             {% if ev.severity == 'critical' %}
-            <span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
-            <span class="text-xs font-bold text-red-600 uppercase">{{ ev.severity }}</span>
+            <span class="w-2 h-2 rounded-full bg-red-500 shrink-0"></span>
+            <span class="text-xs font-bold text-red-600 uppercase tracking-wide">{{ ev.severity }}</span>
             {% elif ev.severity == 'warning' %}
-            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
-            <span class="text-xs font-bold text-amber-600 uppercase">{{ ev.severity }}</span>
+            <span class="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+            <span class="text-xs font-bold text-amber-600 uppercase tracking-wide">{{ ev.severity }}</span>
             {% else %}
-            <span class="w-1.5 h-1.5 rounded-full bg-gray-300 shrink-0"></span>
-            <span class="text-xs font-semibold text-gray-400 uppercase">{{ ev.severity }}</span>
+            <span class="w-2 h-2 rounded-full bg-gray-300 shrink-0"></span>
+            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">{{ ev.severity }}</span>
             {% endif %}
-            <span class="text-xs text-gray-400">{{ ev.platform.upper() }}</span>
-            <span class="text-xs text-gray-400 ml-auto">{{ ev.detected_at[:16] if ev.detected_at else '' }}</span>
+            <span class="text-xs text-gray-400 font-medium">{{ ev.platform.upper() }}</span>
+            <span class="text-xs text-gray-400 ml-auto tabular-nums">{{ ev.detected_at[:16] if ev.detected_at else '' }}</span>
           </div>
           <p class="text-sm text-gray-700 truncate">{{ ev.text[:80] }}</p>
           {% if ev.author %}
@@ -209,7 +194,7 @@
     remaining--;
     if (remaining <= 0) { clearInterval(timer); el.textContent = '실행 중...'; return; }
     const m = Math.floor(remaining / 60), s = remaining % 60;
-    el.textContent = m + '분 ' + s + '초';
+    el.textContent = m + '분 ' + String(s).padStart(2, '0') + '초';
   }, 1000);
 })();
 </script>

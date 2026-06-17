@@ -1,75 +1,73 @@
 """
-monitoring_events, notifications, monitor_cursors CRUD
+monitoring_events, notifications, monitor_cursors CRUD — PostgreSQL 버전
 """
 
-import sqlite3
 import json
-import os
 
-DB_PATH = os.getenv("DB_PATH", "./sns_management.db")
+from src.db.db import db_cursor
 
 
-def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+def _row(r):
+    """RealDictRow → plain dict, datetime → ISO 문자열."""
+    if r is None:
+        return None
+    d = dict(r)
+    for k, v in d.items():
+        if hasattr(v, "strftime"):
+            d[k] = v.strftime("%Y-%m-%d %H:%M:%S")
+    return d
 
 
 def insert_event(event: dict) -> int | None:
-    """중복 external_id는 무시 (UNIQUE 제약). 반환값: 삽입된 id 또는 None."""
-    try:
-        with get_conn() as conn:
-            cur = conn.execute("""
-                INSERT OR IGNORE INTO monitoring_events
-                  (platform, event_type, external_id, author, text,
-                   sentiment, severity, raw_json, url)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                event["platform"],
-                event.get("event_type", "mention"),
-                event.get("external_id"),
-                event.get("author"),
-                event["text"],
-                event.get("sentiment", "neutral"),
-                event.get("severity", "info"),
-                json.dumps(event.get("raw", {}), ensure_ascii=False),
-                event.get("url"),
-            ))
-            conn.commit()
-            return cur.lastrowid if cur.lastrowid else None
-    except sqlite3.IntegrityError:
-        return None
+    """중복 (platform, external_id) 는 무시. 삽입된 id 반환, 중복이면 None."""
+    with db_cursor() as cur:
+        cur.execute("""
+            INSERT INTO monitoring_events
+              (platform, event_type, external_id, author, text,
+               sentiment, severity, raw_json, url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (platform, external_id) DO NOTHING
+            RETURNING id
+        """, (
+            event["platform"],
+            event.get("event_type", "mention"),
+            event.get("external_id"),
+            event.get("author"),
+            event["text"],
+            event.get("sentiment", "neutral"),
+            event.get("severity", "info"),
+            json.dumps(event.get("raw", {}), ensure_ascii=False),
+            event.get("url"),
+        ))
+        row = cur.fetchone()
+        return row["id"] if row else None
 
 
 def get_event(event_id: int) -> dict | None:
-    with get_conn() as conn:
-        row = conn.execute(
-            "SELECT * FROM monitoring_events WHERE id = ?", (event_id,)
-        ).fetchone()
-        return dict(row) if row else None
+    with db_cursor() as cur:
+        cur.execute("SELECT * FROM monitoring_events WHERE id = %s", (event_id,))
+        return _row(cur.fetchone())
 
 
 def list_events(limit: int = 100, severity: str = None) -> list:
-    with get_conn() as conn:
+    with db_cursor() as cur:
         if severity:
-            rows = conn.execute(
-                "SELECT * FROM monitoring_events WHERE severity = ? ORDER BY detected_at DESC LIMIT ?",
+            cur.execute(
+                "SELECT * FROM monitoring_events WHERE severity = %s ORDER BY detected_at DESC LIMIT %s",
                 (severity, limit),
-            ).fetchall()
+            )
         else:
-            rows = conn.execute(
-                "SELECT * FROM monitoring_events ORDER BY detected_at DESC LIMIT ?",
+            cur.execute(
+                "SELECT * FROM monitoring_events ORDER BY detected_at DESC LIMIT %s",
                 (limit,),
-            ).fetchall()
-        return [dict(r) for r in rows]
+            )
+        return [_row(r) for r in cur.fetchall()]
 
 
 def count_events_by_severity() -> dict:
-    with get_conn() as conn:
-        rows = conn.execute(
-            "SELECT severity, COUNT(*) as cnt FROM monitoring_events GROUP BY severity"
-        ).fetchall()
-        return {r["severity"]: r["cnt"] for r in rows}
+    with db_cursor() as cur:
+        cur.execute("SELECT severity, COUNT(*) as cnt FROM monitoring_events GROUP BY severity")
+        return {r["severity"]: r["cnt"] for r in cur.fetchall()}
 
 
 def insert_notification(
@@ -80,81 +78,69 @@ def insert_notification(
     event_id: int = None,
     queue_id: int = None,
 ) -> int:
-    with get_conn() as conn:
-        cur = conn.execute(
-            """
+    with db_cursor() as cur:
+        cur.execute("""
             INSERT INTO notifications (type, title, body, severity, related_event_id, related_queue_id)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (type_, title, body, severity, event_id, queue_id),
-        )
-        conn.commit()
-        return cur.lastrowid
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (type_, title, body, severity, event_id, queue_id))
+        return cur.fetchone()["id"]
 
 
 def list_notifications(limit: int = 100, unread_only: bool = False) -> list:
-    with get_conn() as conn:
+    with db_cursor() as cur:
         if unread_only:
-            rows = conn.execute(
-                "SELECT * FROM notifications WHERE read_at IS NULL ORDER BY created_at DESC LIMIT ?",
+            cur.execute(
+                "SELECT * FROM notifications WHERE read_at IS NULL ORDER BY created_at DESC LIMIT %s",
                 (limit,),
-            ).fetchall()
+            )
         else:
-            rows = conn.execute(
-                "SELECT * FROM notifications ORDER BY created_at DESC LIMIT ?",
+            cur.execute(
+                "SELECT * FROM notifications ORDER BY created_at DESC LIMIT %s",
                 (limit,),
-            ).fetchall()
-        return [dict(r) for r in rows]
+            )
+        return [_row(r) for r in cur.fetchall()]
 
 
 def count_unread() -> int:
-    with get_conn() as conn:
-        row = conn.execute(
-            "SELECT COUNT(*) FROM notifications WHERE read_at IS NULL"
-        ).fetchone()
-        return row[0]
+    with db_cursor() as cur:
+        cur.execute("SELECT COUNT(*) as cnt FROM notifications WHERE read_at IS NULL")
+        return cur.fetchone()["cnt"]
 
 
 def mark_read(notif_id: int):
-    with get_conn() as conn:
-        conn.execute(
-            "UPDATE notifications SET read_at = datetime('now') WHERE id = ?",
-            (notif_id,),
-        )
-        conn.commit()
+    with db_cursor() as cur:
+        cur.execute("UPDATE notifications SET read_at = NOW() WHERE id = %s", (notif_id,))
 
 
 def mark_all_read():
-    with get_conn() as conn:
-        conn.execute(
-            "UPDATE notifications SET read_at = datetime('now') WHERE read_at IS NULL"
-        )
-        conn.commit()
+    with db_cursor() as cur:
+        cur.execute("UPDATE notifications SET read_at = NOW() WHERE read_at IS NULL")
 
 
 def get_cursor(platform: str) -> dict:
-    with get_conn() as conn:
-        row = conn.execute(
-            "SELECT * FROM monitor_cursors WHERE platform = ?", (platform,)
-        ).fetchone()
-        return dict(row) if row else {"platform": platform, "last_since_id": None, "last_run_at": None, "last_error": None}
+    """monitor_cursors 테이블에서 플랫폼 커서 정보 조회."""
+    with db_cursor() as cur:
+        cur.execute("SELECT * FROM monitor_cursors WHERE platform = %s", (platform,))
+        row = cur.fetchone()
+        return _row(row) if row else {"platform": platform, "last_since_id": None, "last_run_at": None, "last_error": None}
 
 
 def get_account_stats() -> list:
-    """플랫폼별 최신 스냅샷 + 7일 전 스냅샷을 묶어 변화량 계산."""
-    with get_conn() as conn:
-        platforms = ["x", "facebook", "instagram"]
+    """플랫폼별 최신 스냅샷 + 이전 스냅샷으로 변화량 계산."""
+    with db_cursor() as cur:
         result = []
-        for p in platforms:
-            rows = conn.execute(
-                "SELECT * FROM account_snapshots WHERE platform = ? ORDER BY captured_at DESC LIMIT 2",
+        for p in ["x", "facebook", "instagram"]:
+            cur.execute(
+                "SELECT * FROM account_snapshots WHERE platform = %s ORDER BY captured_at DESC LIMIT 2",
                 (p,),
-            ).fetchall()
+            )
+            rows = cur.fetchall()
             if not rows:
                 continue
-            now = dict(rows[0])
+            now = _row(rows[0])
             now["extra"] = json.loads(now.get("extra_json") or "{}")
-            prev = dict(rows[1]) if len(rows) > 1 else None
+            prev = _row(rows[1]) if len(rows) > 1 else None
             if prev:
                 prev["extra"] = json.loads(prev.get("extra_json") or "{}")
                 now["followers_delta"] = now["followers"] - prev["followers"]
@@ -165,15 +151,11 @@ def get_account_stats() -> list:
 
 
 def update_cursor(platform: str, last_since_id: str = None, error: str = None):
-    with get_conn() as conn:
-        conn.execute(
-            """
+    with db_cursor() as cur:
+        cur.execute("""
             UPDATE monitor_cursors
-            SET last_since_id = COALESCE(?, last_since_id),
-                last_run_at   = datetime('now'),
-                last_error    = ?
-            WHERE platform = ?
-            """,
-            (last_since_id, error, platform),
-        )
-        conn.commit()
+            SET last_since_id = COALESCE(%s, last_since_id),
+                last_run_at   = NOW(),
+                last_error    = %s
+            WHERE platform = %s
+        """, (last_since_id, error, platform))
