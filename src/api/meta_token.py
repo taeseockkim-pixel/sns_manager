@@ -72,11 +72,17 @@ def check_token_expiry() -> dict:
 
 
 def refresh_token() -> str:
-    """현재 토큰을 장기 토큰(60일)으로 갱신하고 .env에 저장. 새 토큰 반환."""
+    """단기 사용자 토큰 → 영구 페이지 토큰 2단계 변환.
+
+    Step 1: fb_exchange_token → 60일 장기 사용자 토큰
+    Step 2: /me/accounts → 영구 페이지 토큰 (장기 사용자 토큰 기반이면 만료 없음)
+    """
     app_id = os.environ.get("META_APP_ID", "")
     app_secret = os.environ.get("META_APP_SECRET", "")
+    page_id = os.environ.get("META_PAGE_ID", "").strip()
     token = os.environ.get("META_PAGE_ACCESS_TOKEN", "")
 
+    # Step 1: 60일 장기 사용자 토큰
     resp = requests.get(
         "https://graph.facebook.com/oauth/access_token",
         params={
@@ -88,19 +94,38 @@ def refresh_token() -> str:
         timeout=15,
         verify=ssl_verify(),
     )
-
     if not resp.ok:
-        raise RuntimeError(f"토큰 갱신 실패: {resp.text[:300]}")
+        raise RuntimeError(f"토큰 교환 실패: {resp.text[:300]}")
+    long_lived_token = resp.json().get("access_token")
+    if not long_lived_token:
+        raise RuntimeError("장기 토큰이 응답에 없습니다.")
 
-    new_token = resp.json().get("access_token")
-    if not new_token:
-        raise RuntimeError("갱신된 토큰이 응답에 없습니다.")
+    # Step 2: /me/accounts로 영구 페이지 토큰 획득
+    page_token = _get_page_token(long_lived_token, page_id)
 
-    _update_env_token("META_PAGE_ACCESS_TOKEN", new_token)
-    # Vercel 서버리스 영속을 위해 DB에도 저장 (cold start 후에도 최신 토큰 유지)
+    final_token = page_token or long_lived_token
+    _update_env_token("META_PAGE_ACCESS_TOKEN", final_token)
     from src.db import creds as creds_db
-    creds_db.upsert("META_PAGE_ACCESS_TOKEN", new_token)
-    return new_token
+    creds_db.upsert("META_PAGE_ACCESS_TOKEN", final_token)
+    return final_token
+
+
+def _get_page_token(user_token: str, page_id: str) -> str:
+    """장기 사용자 토큰으로 /me/accounts 조회 → 영구 페이지 토큰 반환."""
+    if not page_id:
+        return ""
+    resp = requests.get(
+        "https://graph.facebook.com/me/accounts",
+        params={"access_token": user_token, "limit": 50},
+        timeout=15,
+        verify=ssl_verify(),
+    )
+    if not resp.ok:
+        return ""
+    for page in resp.json().get("data", []):
+        if page.get("id") == page_id:
+            return page.get("access_token", "")
+    return ""
 
 
 def check_and_refresh_if_needed() -> dict:

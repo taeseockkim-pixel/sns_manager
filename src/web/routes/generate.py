@@ -165,23 +165,40 @@ def _extract_image_text(file_bytes: bytes, filename: str) -> str:
 
 
 def _analyze_document(extracted_text: str) -> dict:
-    """AI로 문서 텍스트에서 SNS 홍보용 주제·포인트·핵심특징 추출."""
+    """AI로 문서 텍스트에서 SNS 홍보용 주제·포인트·핵심특징을 한영 이중언어로 추출."""
     from src.ai.client import call_ai
     prompt = (
-        "아래 문서 내용에서 SNS 홍보물 작성에 필요한 정보를 추출하세요.\n\n"
+        "아래 문서 내용에서 SNS 홍보물 작성에 필요한 정보를 한국어·영어로 모두 추출하세요.\n\n"
         f"문서:\n{extracted_text[:3000]}\n\n"
-        "[필수 언어 규칙] 모든 텍스트는 순수 한글만 사용하세요. 한자/일본어 절대 금지.\n"
         "JSON으로만 응답 (마크다운 코드블록 없이):\n"
-        '{"topic": "홍보 주제 한 줄 (순수 한글)", '
-        '"points": "- 포인트1\\n- 포인트2\\n- 포인트3 (순수 한글)", '
-        '"key_features": ["특징1", "특징2", "특징3"]}\n'
-        "key_features 는 최대 5개 배열. 모두 순수 한글로."
+        '{"topic_ko": "한글 주제 한 줄", '
+        '"topic_en": "English topic one line", '
+        '"points": "- 포인트1\\n- 포인트2 (순수 한글)", '
+        '"key_features_ko": ["한글 특징1", "한글 특징2"], '
+        '"key_features_en": ["English Feature1", "English Feature2"]}\n'
+        "key_features 최대 5개. 한글 텍스트는 순수 한글만(한자/일본어 금지)."
     )
     try:
-        response = call_ai(prompt, max_tokens=512)
+        response = call_ai(prompt, max_tokens=768)
         return _parse_response(response)
     except Exception:
-        return {"topic": "", "points": "", "key_features": []}
+        return {"topic_ko": "", "topic_en": "", "points": "", "key_features_ko": [], "key_features_en": []}
+
+
+def _translate_to_english(topic_ko: str, key_features_ko: list) -> dict:
+    """한글 주제·특징을 영어로 번역 — 팜플렛 영문 버전용."""
+    from src.ai.client import call_ai
+    features_text = "\n".join(f"- {f}" for f in key_features_ko[:5]) if key_features_ko else ""
+    prompt = (
+        f"Translate to concise business English.\n\nTopic: {topic_ko}\n"
+        f"Features:\n{features_text}\n\n"
+        'Return JSON only: {"topic_en": "one-line English topic", "features_en": ["Feature1", "Feature2"]}'
+    )
+    try:
+        response = call_ai(prompt, max_tokens=256)
+        return _parse_response(response)
+    except Exception:
+        return {"topic_en": topic_ko, "features_en": key_features_ko}
 
 
 def _generate_image_prompt(topic: str, key_features: list) -> str:
@@ -196,10 +213,24 @@ def _generate_image_prompt(topic: str, key_features: list) -> str:
     )
 
 
-def _render_pamphlet(topic: str, gen_date: str, key_features: list, items: list, image_prompt: str = "") -> str:
-    """Jinja2 템플릿으로 HTML 팜플렛 렌더링."""
+def _render_pamphlet(topic: str, gen_date: str, key_features: list, items: list, image_prompt: str = "", lang: str = "ko") -> str:
+    """Jinja2 템플릿으로 HTML 팜플렛 partial 렌더링."""
     tmpl = templates.get_template("partials/pamphlet.html")
-    return tmpl.render(topic=topic, gen_date=gen_date, key_features=key_features, items=items, image_prompt=image_prompt)
+    return tmpl.render(topic=topic, gen_date=gen_date, key_features=key_features, items=items, image_prompt=image_prompt, lang=lang)
+
+
+def _wrap_pamphlet(partial_html: str, topic: str, lang: str) -> str:
+    """팜플렛 partial을 독립 실행 가능한 HTML 문서로 래핑."""
+    lang_attr = "ko" if lang == "ko" else "en"
+    safe_title = topic.replace("<", "&lt;").replace(">", "&gt;")
+    return (
+        f'<!DOCTYPE html><html lang="{lang_attr}"><head>'
+        f'<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">'
+        f'<title>CIMON — {safe_title}</title>'
+        f'<style>*{{box-sizing:border-box}}body{{margin:0;padding:24px;background:#f1f5f9}}'
+        f'@media print{{body{{padding:0;background:white}}}}</style>'
+        f'</head><body>{partial_html}</body></html>'
+    )
 
 
 # ── SNS 콘텐츠 생성 ─────────────────────────────────────────────
@@ -292,6 +323,8 @@ async def generate_content(
     generated_items: list[dict] = []
     errors: list[str] = []
     key_features: list[str] = []
+    key_features_en: list[str] = []
+    topic_en: str = ""
 
     if not os.getenv("GROQ_API_KEY") and not os.getenv("GEMINI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"):
         return templates.TemplateResponse(
@@ -303,7 +336,8 @@ async def generate_content(
                     "설정 페이지에서 GEMINI_API_KEY(무료) 또는 ANTHROPIC_API_KEY를 등록해 주세요."
                 ],
                 "topic": topic, "items": pending_items,
-                "saved_filename": None, "pamphlet_html": None, "pamphlet_b64": None,
+                "saved_filename": None,
+                "pamphlet_ko_html": None, "pamphlet_ko_b64": None, "pamphlet_en_b64": None,
             },
         )
 
@@ -312,11 +346,13 @@ async def generate_content(
         # PDF.js가 브라우저에서 미리 추출한 텍스트 사용 (20MB PDF 지원)
         try:
             doc_info = _analyze_document(extracted_text)
-            if not topic.strip() and doc_info.get("topic"):
-                topic = doc_info["topic"]
+            if not topic.strip():
+                topic = doc_info.get("topic_ko") or doc_info.get("topic", "")
             if not points.strip() and doc_info.get("points"):
                 points = doc_info["points"]
-            key_features = [f for f in doc_info.get("key_features", []) if f]
+            key_features = [f for f in (doc_info.get("key_features_ko") or doc_info.get("key_features", [])) if f]
+            key_features_en = [f for f in doc_info.get("key_features_en", []) if f]
+            topic_en = doc_info.get("topic_en", "")
         except Exception as exc:
             errors.append(f"파일 분석 오류: {str(exc)[:150]}")
     elif attachment and attachment.filename:
@@ -333,11 +369,13 @@ async def generate_content(
                 try:
                     file_text = _extract_text_from_file(file_bytes, fname)
                     doc_info = _analyze_document(file_text)
-                    if not topic.strip() and doc_info.get("topic"):
-                        topic = doc_info["topic"]
+                    if not topic.strip():
+                        topic = doc_info.get("topic_ko") or doc_info.get("topic", "")
                     if not points.strip() and doc_info.get("points"):
                         points = doc_info["points"]
-                    key_features = [f for f in doc_info.get("key_features", []) if f]
+                    key_features = [f for f in (doc_info.get("key_features_ko") or doc_info.get("key_features", [])) if f]
+                    key_features_en = [f for f in doc_info.get("key_features_en", []) if f]
+                    topic_en = doc_info.get("topic_en", "")
                 except Exception as exc:
                     errors.append(f"파일 분석 오류: {str(exc)[:150]}")
 
@@ -347,17 +385,40 @@ async def generate_content(
             request,
             "partials/generate_result.html",
             {"results": [], "errors": errors, "topic": topic, "items": pending_items,
-             "saved_filename": None, "pamphlet_html": None, "pamphlet_b64": None},
+             "saved_filename": None,
+             "pamphlet_ko_html": None, "pamphlet_ko_b64": None, "pamphlet_en_b64": None},
         )
 
-    # ── 플랫폼별 SNS 콘텐츠 병렬 생성 ──
+    # ── 플랫폼별 SNS 콘텐츠 + 영문 번역 병렬 실행 ──
     import asyncio
 
     async def _gen_one(platform: str):
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, _generate_live, platform, topic, points)
 
-    raw = await asyncio.gather(*[_gen_one(p) for p in platforms], return_exceptions=True)
+    async def _translate_en_async():
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _translate_to_english, topic, key_features)
+
+    need_translation = not topic_en.strip() or not key_features_en
+    all_tasks = ([_translate_en_async()] if need_translation else []) + [_gen_one(p) for p in platforms]
+    raw_all = await asyncio.gather(*all_tasks, return_exceptions=True)
+
+    if need_translation:
+        trans = raw_all[0]
+        raw = raw_all[1:]
+        if not isinstance(trans, Exception) and isinstance(trans, dict):
+            if not topic_en:
+                topic_en = trans.get("topic_en", topic)
+            if not key_features_en:
+                key_features_en = [f for f in trans.get("features_en", []) if f]
+    else:
+        raw = raw_all
+
+    if not topic_en:
+        topic_en = topic
+    if not key_features_en:
+        key_features_en = key_features
 
     for platform, result in zip(platforms, raw):
         if isinstance(result, Exception):
@@ -383,8 +444,9 @@ async def generate_content(
         generated_items.append(content)
 
     saved_filename = None
-    pamphlet_html = None
-    pamphlet_b64 = None
+    pamphlet_ko_html: str | None = None
+    pamphlet_ko_b64: str | None = None
+    pamphlet_en_b64: str | None = None
     if generated_items:
         try:
             saved_filename = _save_promo_file(topic, generated_items)
@@ -394,8 +456,12 @@ async def generate_content(
             import base64 as _b64
             gen_date = datetime.now().strftime("%Y-%m-%d %H:%M")
             image_prompt = _generate_image_prompt(topic, key_features)
-            pamphlet_html = _render_pamphlet(topic, gen_date, key_features, generated_items, image_prompt)
-            pamphlet_b64 = _b64.b64encode(pamphlet_html.encode("utf-8")).decode()
+            ko_partial = _render_pamphlet(topic, gen_date, key_features, generated_items, image_prompt, lang="ko")
+            en_partial = _render_pamphlet(topic_en, gen_date, key_features_en, generated_items, image_prompt, lang="en")
+            pamphlet_ko_html = _wrap_pamphlet(ko_partial, topic, "ko")
+            en_full = _wrap_pamphlet(en_partial, topic_en, "en")
+            pamphlet_ko_b64 = _b64.b64encode(pamphlet_ko_html.encode("utf-8")).decode()
+            pamphlet_en_b64 = _b64.b64encode(en_full.encode("utf-8")).decode()
         except Exception:
             pass
 
@@ -409,7 +475,8 @@ async def generate_content(
             "topic": topic,
             "items": pending_items,
             "saved_filename": saved_filename,
-            "pamphlet_html": pamphlet_html,
-            "pamphlet_b64": pamphlet_b64,
+            "pamphlet_ko_html": pamphlet_ko_html,
+            "pamphlet_ko_b64": pamphlet_ko_b64,
+            "pamphlet_en_b64": pamphlet_en_b64,
         },
     )

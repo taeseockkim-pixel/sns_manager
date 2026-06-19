@@ -61,7 +61,7 @@
 
 <div class="bg-white rounded-xl border border-slate-200 mb-10 shadow-sm">
   <div class="px-5 py-3 border-b border-slate-100">
-    <span class="text-xs text-slate-500">SNS 계정 현황</span>
+    <span class="text-xs text-slate-500">SNS 계정 현황 — 매시간 자동 갱신</span>
   </div>
   {% set platform_meta = {
     'x':         {'label': 'X (Twitter)', 'icon': 'X',  'bg': '#111827'},
@@ -69,10 +69,10 @@
     'instagram': {'label': 'Instagram',   'icon': 'IG', 'bg': 'linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)'}
   } %}
   {% if account_stats %}
-  <div class="grid grid-cols-3 divide-x divide-slate-100">
+  <div class="grid divide-x divide-slate-100" style="grid-template-columns:repeat({{ [account_stats|length, 3]|min }}, 1fr);">
     {% for stat in account_stats %}
     {% set meta = platform_meta.get(stat.platform, {'label': stat.platform, 'icon': '?', 'bg': '#6b7280'}) %}
-    <div class="px-5 py-4">
+    <div class="px-5 py-4 relative">
       <div class="flex items-center gap-2.5 mb-3">
         <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background:{{ meta.bg }};">
           <span class="text-white font-bold" style="font-size:10px;">{{ meta.icon }}</span>
@@ -95,15 +95,25 @@
           <span class="text-xs text-slate-600">{{ stat.extra.get('likes_avg', '—') }}</span>
         </div>
         <div class="flex items-baseline justify-between">
+          <span class="text-xs text-slate-400">평균 댓글</span>
+          <span class="text-xs text-slate-600">{{ stat.extra.get('comments_avg', '—') }}</span>
+        </div>
+        <div class="flex items-baseline justify-between">
           <span class="text-xs text-slate-400">인게이지먼트</span>
-          <span class="text-xs text-slate-600">{{ stat.extra.get('engagement_rate', '—') }}%</span>
+          <span class="text-xs text-slate-600">
+            {% set er = stat.extra.get('engagement_rate') %}
+            {% if er and er != '0.00' %}{{ er }}%{% else %}—{% endif %}
+          </span>
         </div>
       </div>
     </div>
     {% endfor %}
   </div>
   {% else %}
-  <div class="px-5 py-10 text-center text-sm text-slate-400">계정 데이터가 없습니다.</div>
+  <div class="px-5 py-8 text-center text-sm text-slate-400">
+    <p>계정 통계를 가져오는 중입니다.</p>
+    <p class="text-xs text-slate-300 mt-1">앱 시작 후 잠시 후 페이지를 새로고침 해주세요. API 자격증명이 설정되어 있어야 합니다.</p>
+  </div>
   {% endif %}
 </div>
 

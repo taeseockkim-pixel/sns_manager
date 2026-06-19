@@ -150,6 +150,15 @@ def get_account_stats() -> list:
         return result
 
 
+def save_account_snapshot(platform: str, followers: int = 0, following: int = 0, post_count: int = 0, extra: dict = None) -> None:
+    """플랫폼 계정 통계 스냅샷 저장 (hourly_monitor_job에서 호출)."""
+    with db_cursor() as cur:
+        cur.execute(
+            "INSERT INTO account_snapshots (platform, followers, following, post_count, extra_json) VALUES (%s, %s, %s, %s, %s)",
+            (platform, followers, following, post_count, json.dumps(extra or {})),
+        )
+
+
 def save_reply_draft(event_id: int, draft: str) -> None:
     with db_cursor() as cur:
         cur.execute(

@@ -152,6 +152,8 @@ def hourly_monitor_job():
             bus.publish({"type": "notification.new", "id": notif_id, "severity": "critical"})
             events_db.update_cursor(platform, error=str(exc))
 
+    _save_platform_stats()
+
 
 def _fetch_x_events(since_id: str = None) -> list:
     from src.api.x_client import get_mentions
@@ -178,6 +180,41 @@ def _fetch_threads_events(since_id: str = None) -> list:
     from src.api.threads_client import get_threads_replies
     raw = get_threads_replies(since_timestamp=since_id)
     return [_process_live_threads_event(r) for r in raw]
+
+
+def _save_platform_stats() -> None:
+    """각 플랫폼 계정 통계 스냅샷 저장 — H-04: 실패해도 조용히 무시."""
+    # X
+    if _has_x_creds():
+        try:
+            from src.api.x_client import get_account_stats as _x_stats
+            events_db.save_account_snapshot("x", **_x_stats())
+        except Exception:
+            pass
+
+    # Facebook
+    if _has_fb_creds():
+        try:
+            from src.api.meta_client import get_page_stats
+            events_db.save_account_snapshot("facebook", **get_page_stats())
+        except Exception:
+            pass
+
+    # Instagram — META_IG_USER_ID 없으면 Facebook 페이지에서 자동 조회
+    if os.getenv("META_PAGE_ACCESS_TOKEN") and os.getenv("META_PAGE_ID"):
+        try:
+            from src.api.meta_client import get_instagram_stats
+            events_db.save_account_snapshot("instagram", **get_instagram_stats())
+        except Exception:
+            pass
+
+    # Threads
+    if _has_threads_creds():
+        try:
+            from src.api.threads_client import get_account_stats as _t_stats
+            events_db.save_account_snapshot("threads", **_t_stats())
+        except Exception:
+            pass
 
 
 def daily_meta_token_check():

@@ -67,6 +67,140 @@ def post_to_instagram(image_url: str, caption: str) -> dict:
     return publish_resp.json()
 
 
+def get_page_stats() -> dict:
+    """Facebook 페이지 팔로워 + 최근 10개 게시물 좋아요/댓글 평균."""
+    page_id = os.environ["META_PAGE_ID"]
+    token = _token()
+
+    resp = requests.get(
+        f"{BASE_URL}/{page_id}",
+        params={"fields": "fan_count", "access_token": token},
+        timeout=10, verify=ssl_verify(),
+    )
+    if not resp.ok:
+        raise RuntimeError(f"Meta API error {resp.status_code}: {resp.text}")
+    followers = resp.json().get("fan_count", 0)
+
+    likes_avg: int = 0
+    comments_avg: int = 0
+    engagement_rate: str = "0.00"
+    try:
+        posts_resp = requests.get(
+            f"{BASE_URL}/{page_id}/posts",
+            params={
+                "fields": "reactions.summary(true),comments.summary(true)",
+                "limit": 10,
+                "access_token": token,
+            },
+            timeout=10, verify=ssl_verify(),
+        )
+        if posts_resp.ok:
+            posts = posts_resp.json().get("data", [])
+            if posts:
+                reactions = [p.get("reactions", {}).get("summary", {}).get("total_count", 0) for p in posts]
+                comments  = [p.get("comments",  {}).get("summary", {}).get("total_count", 0) for p in posts]
+                likes_avg    = sum(reactions) // len(reactions)
+                comments_avg = sum(comments)  // len(comments)
+                if followers > 0:
+                    eng = (sum(reactions) + sum(comments)) / len(posts) / followers * 100
+                    engagement_rate = f"{eng:.2f}"
+    except Exception:
+        pass
+
+    return {
+        "followers":  followers,
+        "following":  0,
+        "post_count": 0,
+        "extra": {
+            "likes_avg":       likes_avg,
+            "comments_avg":    comments_avg,
+            "engagement_rate": engagement_rate,
+        },
+    }
+
+
+def _get_ig_user_id() -> str:
+    """META_IG_USER_ID 환경변수 우선 사용, 없으면 Facebook 페이지에서 자동 조회.
+    instagram_business_account → connected_instagram_account 순서로 시도."""
+    ig_id = os.environ.get("META_IG_USER_ID", "").strip()
+    if ig_id:
+        return ig_id
+    page_id = os.environ["META_PAGE_ID"]
+    token = _token()
+    # 두 필드 동시 요청 (권한에 따라 하나만 응답될 수 있음)
+    resp = requests.get(
+        f"{BASE_URL}/{page_id}",
+        params={
+            "fields": "instagram_business_account,connected_instagram_account",
+            "access_token": token,
+        },
+        timeout=10, verify=ssl_verify(),
+    )
+    if not resp.ok:
+        raise RuntimeError(f"Meta API error {resp.status_code}: {resp.text}")
+    data = resp.json()
+    ig_id = (
+        data.get("instagram_business_account", {}).get("id")
+        or data.get("connected_instagram_account", {}).get("id")
+        or ""
+    )
+    if not ig_id:
+        raise RuntimeError(
+            "Facebook 페이지에 연결된 Instagram 계정을 찾을 수 없습니다. "
+            "토큰에 instagram_basic 권한이 필요합니다."
+        )
+    return ig_id
+
+
+def get_instagram_stats() -> dict:
+    """Instagram 비즈니스 계정 팔로워 + 최근 10개 미디어 좋아요/댓글 평균."""
+    ig_user_id = _get_ig_user_id()
+    token = _token()
+
+    resp = requests.get(
+        f"{BASE_URL}/{ig_user_id}",
+        params={"fields": "followers_count,follows_count,media_count", "access_token": token},
+        timeout=10, verify=ssl_verify(),
+    )
+    if not resp.ok:
+        raise RuntimeError(f"Meta API error {resp.status_code}: {resp.text}")
+    data = resp.json()
+    followers = data.get("followers_count", 0)
+
+    likes_avg: int = 0
+    comments_avg: int = 0
+    engagement_rate: str = "0.00"
+    try:
+        media_resp = requests.get(
+            f"{BASE_URL}/{ig_user_id}/media",
+            params={"fields": "like_count,comments_count", "limit": 10, "access_token": token},
+            timeout=10, verify=ssl_verify(),
+        )
+        if media_resp.ok:
+            media = media_resp.json().get("data", [])
+            if media:
+                likes    = [m.get("like_count",      0) for m in media]
+                comments = [m.get("comments_count",  0) for m in media]
+                likes_avg    = sum(likes)    // len(likes)
+                comments_avg = sum(comments) // len(comments)
+                if followers > 0:
+                    eng = (sum(likes) + sum(comments)) / len(media) / followers * 100
+                    engagement_rate = f"{eng:.2f}"
+    except Exception:
+        pass
+
+    return {
+        "followers":  followers,
+        "following":  data.get("follows_count", 0),
+        "post_count": data.get("media_count",   0),
+        "extra": {
+            "likes_avg":       likes_avg,
+            "comments_avg":    comments_avg,
+            "engagement_rate": engagement_rate,
+        },
+    }
+
+
 def get_page_comments(since_timestamp: str = None) -> list:
     """페이지 댓글 수집 (모니터링용)."""
     page_id = os.environ["META_PAGE_ID"]

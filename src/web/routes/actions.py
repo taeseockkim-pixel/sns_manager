@@ -27,6 +27,11 @@ templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 _PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 
 
+def _do_refresh_stats() -> None:
+    from src.scheduler.jobs import _save_platform_stats
+    _save_platform_stats()
+
+
 @router.post("/queue/{queue_id}/approve", response_class=HTMLResponse)
 async def approve_content(
     request: Request,
@@ -156,6 +161,14 @@ async def wipe_monitoring_events(reviewer: str = Depends(verify_credentials)):
     from src.db.migrations import wipe_mock_events
     wipe_mock_events()
     return HTMLResponse("", headers={"HX-Redirect": "/monitoring"})
+
+
+@router.post("/admin/refresh-stats", response_class=HTMLResponse)
+async def refresh_account_stats(reviewer: str = Depends(verify_credentials)):
+    """계정 통계 스냅샷 즉시 갱신 — 대시보드 '통계 새로고침' 버튼용."""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _do_refresh_stats)
+    return HTMLResponse("", headers={"HX-Redirect": "/"})
 
 
 @router.get("/partial/monitor-event/{event_id}", response_class=HTMLResponse)

@@ -16,6 +16,7 @@
     }
   ],
   "crons": [
+    { "path": "/cron/hourly-monitor",      "schedule": "0 * * * *" },
     { "path": "/cron/daily-meta-token",    "schedule": "0 3 * * *" },
     { "path": "/cron/daily-threads-token", "schedule": "0 4 * * *" }
   ]
