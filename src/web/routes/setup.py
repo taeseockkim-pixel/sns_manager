@@ -21,12 +21,14 @@ _TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 
 _fb_oauth_state: str | None = None
+_ig_oauth_state: str | None = None
 
 
 def _cred_status() -> dict:
     keys = [
         "META_APP_ID", "META_APP_SECRET", "META_PAGE_ACCESS_TOKEN",
         "META_PAGE_ID", "META_IG_USER_ID",
+        "INSTAGRAM_APP_ID", "INSTAGRAM_APP_SECRET", "INSTAGRAM_ACCESS_TOKEN",
         "X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_TOKEN_SECRET", "X_BEARER_TOKEN",
         "ANTHROPIC_API_KEY",
         "GEMINI_API_KEY",
@@ -42,6 +44,7 @@ def _profile_values() -> dict:
         "COMPANY_TARGET", "COMPANY_TONE",
         "SNS_URL_X", "SNS_URL_FACEBOOK", "SNS_URL_INSTAGRAM",
         "META_PAGE_ID", "META_IG_USER_ID",
+        "INSTAGRAM_APP_ID",
     ]
     return {k: os.environ.get(k, "") for k in keys}
 
@@ -172,6 +175,143 @@ async def meta_refresh_token(request: Request):
             f'<span class="text-red-600 font-semibold">갱신 실패: {result["message"][:200]} '
             f'— <a href="https://developers.facebook.com/tools/explorer/" target="_blank" '
             f'class="underline">Graph Explorer</a>에서 새 토큰 발급 후 직접 입력하세요.</span>'
+        )
+
+
+@router.get("/instagram/oauth")
+async def instagram_oauth_redirect(request: Request):
+    global _ig_oauth_state
+    app_id = os.environ.get("INSTAGRAM_APP_ID", "")
+    if not app_id:
+        return templates.TemplateResponse(
+            request, "setup.html",
+            {"creds": _cred_status(), "profile": _profile_values(), "page": "setup",
+             "error": "INSTAGRAM_APP_ID가 설정되지 않았습니다. 먼저 저장해 주세요."}
+        )
+    _ig_oauth_state = secrets.token_urlsafe(16)
+    base_url = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base_url}/setup/instagram/oauth/callback"
+    scope = ",".join([
+        "instagram_business_basic",
+        "instagram_business_manage_messages",
+        "instagram_business_manage_comments",
+        "instagram_business_content_publish",
+        "instagram_business_manage_insights",
+    ])
+    auth_url = (
+        f"https://www.instagram.com/oauth/authorize"
+        f"?client_id={app_id}"
+        f"&redirect_uri={redirect_uri}"
+        f"&scope={scope}"
+        f"&response_type=code"
+        f"&state={_ig_oauth_state}"
+    )
+    return RedirectResponse(auth_url)
+
+
+@router.get("/instagram/oauth/callback", response_class=HTMLResponse)
+async def instagram_oauth_callback(
+    request: Request,
+    code: str = None,
+    state: str = None,
+    error: str = None,
+):
+    global _ig_oauth_state
+
+    if error:
+        return templates.TemplateResponse(
+            request, "setup.html",
+            {"creds": _cred_status(), "profile": _profile_values(), "page": "setup",
+             "error": f"Instagram 인증 취소: {error}"}
+        )
+    if not code:
+        return templates.TemplateResponse(
+            request, "setup.html",
+            {"creds": _cred_status(), "profile": _profile_values(), "page": "setup",
+             "error": "인증 코드가 없습니다."}
+        )
+    if state != _ig_oauth_state:
+        return templates.TemplateResponse(
+            request, "setup.html",
+            {"creds": _cred_status(), "profile": _profile_values(), "page": "setup",
+             "error": "State 불일치 — 다시 시도해 주세요."}
+        )
+    _ig_oauth_state = None
+
+    app_id = os.environ.get("INSTAGRAM_APP_ID", "")
+    app_secret = os.environ.get("INSTAGRAM_APP_SECRET", "")
+    base_url = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base_url}/setup/instagram/oauth/callback"
+
+    try:
+        # Step 1: 단기 사용자 토큰
+        token_resp = requests.post(
+            "https://api.instagram.com/oauth/access_token",
+            data={
+                "client_id": app_id,
+                "client_secret": app_secret,
+                "grant_type": "authorization_code",
+                "redirect_uri": redirect_uri,
+                "code": code,
+            },
+            timeout=15, verify=ssl_verify(),
+        )
+        if not token_resp.ok:
+            raise RuntimeError(f"단기 토큰 교환 실패: {token_resp.text[:300]}")
+        short_data = token_resp.json()
+        short_token = short_data.get("access_token", "")
+        ig_user_id = str(short_data.get("user_id", ""))
+
+        # Step 2: 60일 장기 토큰
+        long_resp = requests.get(
+            "https://graph.instagram.com/access_token",
+            params={
+                "grant_type": "ig_exchange_token",
+                "client_id": app_id,
+                "client_secret": app_secret,
+                "access_token": short_token,
+            },
+            timeout=15, verify=ssl_verify(),
+        )
+        long_token = long_resp.json().get("access_token", short_token) if long_resp.ok else short_token
+
+        from src.db import creds as creds_db
+        creds_db.upsert("INSTAGRAM_ACCESS_TOKEN", long_token)
+        os.environ["INSTAGRAM_ACCESS_TOKEN"] = long_token
+        if ig_user_id:
+            creds_db.upsert("META_IG_USER_ID", ig_user_id)
+            os.environ["META_IG_USER_ID"] = ig_user_id
+
+        # 사용자 정보 확인
+        me_resp = requests.get(
+            "https://graph.instagram.com/me",
+            params={"fields": "user_id,username,followers_count,media_count", "access_token": long_token},
+            timeout=10, verify=ssl_verify(),
+        )
+        username = ""
+        followers = 0
+        if me_resp.ok:
+            me_data = me_resp.json()
+            username = me_data.get("username", "")
+            followers = me_data.get("followers_count", 0) or 0
+            uid = str(me_data.get("user_id", ""))
+            if uid and not ig_user_id:
+                creds_db.upsert("META_IG_USER_ID", uid)
+                os.environ["META_IG_USER_ID"] = uid
+
+        msg = f"Instagram OAuth 연결 완료! @{username}" if username else "Instagram OAuth 연결 완료!"
+        if followers:
+            msg += f" | 팔로워: {followers:,}"
+        return templates.TemplateResponse(
+            request, "setup.html",
+            {"creds": _cred_status(), "profile": _profile_values(), "page": "setup",
+             "success": msg}
+        )
+    except Exception as exc:
+        return templates.TemplateResponse(
+            request, "setup.html",
+            {"creds": _cred_status(), "profile": _profile_values(), "page": "setup",
+             "error": f"Instagram 인증 실패: {exc}"}
         )
 
 

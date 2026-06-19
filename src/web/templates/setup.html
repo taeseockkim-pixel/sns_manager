@@ -105,48 +105,93 @@
       <span class="text-white font-bold text-xs">IG</span>
     </div>
     <h2 class="text-sm font-semibold text-slate-800">Instagram</h2>
-    {% if creds['META_PAGE_ACCESS_TOKEN'] and creds['META_PAGE_ID'] %}
-    <a href="/setup/instagram"
+    {% if creds['INSTAGRAM_APP_ID'] and creds['INSTAGRAM_APP_SECRET'] %}
+    <a href="/setup/instagram/oauth"
        class="ml-auto px-3 py-1.5 text-xs font-semibold text-white rounded-lg transition-colors"
-       style="background:#111827;">
-      IG 계정 자동 조회
+       style="background:linear-gradient(90deg,#e6683c,#bc1888);">
+      Instagram OAuth 연결
     </a>
     {% endif %}
-    {% if creds['META_IG_USER_ID'] %}
-    <span class="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full border border-green-100">연결됨</span>
+    {% if creds['META_PAGE_ACCESS_TOKEN'] and creds['META_PAGE_ID'] %}
+    <a href="/setup/instagram"
+       class="{% if not (creds['INSTAGRAM_APP_ID'] and creds['INSTAGRAM_APP_SECRET']) %}ml-auto {% endif %}px-3 py-1.5 text-xs font-semibold text-white rounded-lg transition-colors"
+       style="background:#111827;">
+      IG ID 자동 조회
+    </a>
+    {% endif %}
+    {% if creds['INSTAGRAM_ACCESS_TOKEN'] %}
+    <span class="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full border border-green-100">OAuth 연결됨</span>
+    {% elif creds['META_IG_USER_ID'] %}
+    <span class="text-xs text-amber-600 font-semibold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">ID만 설정</span>
     {% endif %}
   </div>
   <div class="px-5 py-4">
-    <div class="flex items-center gap-2 mb-3">
-      {{ status_dot(creds['META_IG_USER_ID']) }}
-      <span class="text-xs text-slate-600 font-mono">META_IG_USER_ID</span>
-      {% if creds['META_IG_USER_ID'] %}
-      <span class="text-xs text-slate-400 ml-1 font-mono">현재값: {{ profile['META_IG_USER_ID'] }}</span>
-      {% endif %}
-    </div>
-    <form method="post" action="/setup/creds">
-      <div class="max-w-sm mb-3">
-        <label class="block text-xs font-medium text-slate-500 mb-1 font-mono">META_IG_USER_ID</label>
-        <input type="text" name="META_IG_USER_ID"
-               placeholder="{{ profile['META_IG_USER_ID'] if profile['META_IG_USER_ID'] else 'Instagram Business Account ID (숫자)' }}"
-               autocomplete="off"
-               class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors">
+
+    <!-- Instagram OAuth (팔로워 수 실시간 조회) -->
+    <div class="mb-4 pb-4 border-b border-slate-100">
+      <p class="text-xs font-semibold text-slate-700 mb-2">Instagram OAuth — 팔로워 수 실시간 조회 (CIMON_SNS-IG 앱)</p>
+      <div class="grid grid-cols-3 gap-2.5 mb-3">
+        {% for key in ['INSTAGRAM_APP_ID', 'INSTAGRAM_APP_SECRET', 'INSTAGRAM_ACCESS_TOKEN'] %}
+        <div class="flex items-center gap-2">
+          {{ status_dot(creds[key]) }}
+          <span class="text-xs text-slate-600 font-mono">{{ key }}</span>
+        </div>
+        {% endfor %}
       </div>
-      <button type="submit"
-              class="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
-        저장
-      </button>
-    </form>
-    {% if not creds['META_IG_USER_ID'] %}
-    <div class="mt-3 text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-lg px-4 py-3 leading-relaxed">
-      <strong>ID 찾는 방법:</strong><br>
-      Graph API Explorer에서 아래 쿼리 실행 후 반환된 <code class="bg-slate-100 px-1 rounded font-mono">id</code> 값을 위에 입력하세요:<br>
-      <code class="bg-slate-100 px-1 rounded font-mono text-xs mt-1 inline-block">
-        /{{ profile['META_PAGE_ID'] or 'PAGE_ID' }}?fields=instagram_business_account,connected_instagram_account
-      </code><br>
-      <span class="text-slate-400 mt-1 inline-block">instagram_basic 권한 없으면: Meta 개발자 콘솔 → CIMON_SNS → Add Product → Instagram Graph API → Set Up</span>
+      {% if creds['INSTAGRAM_APP_ID'] and creds['INSTAGRAM_APP_SECRET'] %}
+      <div class="mb-3 text-xs bg-pink-50 border border-pink-100 rounded-lg px-4 py-3 text-pink-800 leading-relaxed">
+        <strong>사전 준비:</strong> Meta 개발자 콘솔 → <strong>CIMON_SNS-IG</strong> 앱 → Instagram 비즈니스 로그인 →
+        유효한 OAuth 리디렉션 URI에 아래 주소 추가 후 <strong>Instagram OAuth 연결</strong> 버튼 클릭:<br>
+        <code class="bg-pink-100 px-1 rounded font-mono text-xs mt-1 inline-block">
+          {{ request.base_url }}setup/instagram/oauth/callback
+        </code>
+        <br><span class="text-pink-600 mt-1 inline-block">개발 모드: instagram.com/accounts/manage_access/ 에서 Instagram 테스터 초대 수락 필요.</span>
+      </div>
+      {% endif %}
+      <form method="post" action="/setup/creds">
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1 font-mono">INSTAGRAM_APP_ID</label>
+            <input type="text" name="INSTAGRAM_APP_ID"
+                   value="{{ profile['INSTAGRAM_APP_ID'] }}"
+                   placeholder="4422097898073211"
+                   autocomplete="off"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors">
+          </div>
+          {{ cred_input('INSTAGRAM_APP_SECRET', creds['INSTAGRAM_APP_SECRET']) }}
+        </div>
+        <button type="submit"
+                class="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
+          저장
+        </button>
+      </form>
     </div>
-    {% endif %}
+
+    <!-- META_IG_USER_ID (수동 입력 / 폴백) -->
+    <div>
+      <p class="text-xs font-semibold text-slate-700 mb-2">Instagram User ID (수동 입력 / 폴백)</p>
+      <div class="flex items-center gap-2 mb-3">
+        {{ status_dot(creds['META_IG_USER_ID']) }}
+        <span class="text-xs text-slate-600 font-mono">META_IG_USER_ID</span>
+        {% if creds['META_IG_USER_ID'] %}
+        <span class="text-xs text-slate-400 ml-1 font-mono">현재값: {{ profile['META_IG_USER_ID'] }}</span>
+        {% endif %}
+      </div>
+      <form method="post" action="/setup/creds">
+        <div class="max-w-sm mb-3">
+          <label class="block text-xs font-medium text-slate-500 mb-1 font-mono">META_IG_USER_ID</label>
+          <input type="text" name="META_IG_USER_ID"
+                 placeholder="{{ profile['META_IG_USER_ID'] if profile['META_IG_USER_ID'] else 'Instagram Business Account ID (숫자)' }}"
+                 autocomplete="off"
+                 class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors">
+        </div>
+        <button type="submit"
+                class="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
+          저장
+        </button>
+      </form>
+    </div>
+
   </div>
 </div>
 

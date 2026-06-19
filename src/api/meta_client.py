@@ -11,6 +11,7 @@ import requests
 from src.api._ssl import ssl_verify
 
 BASE_URL = "https://graph.facebook.com/v19.0"
+IG_BASE_URL = "https://graph.instagram.com"
 
 
 def _token() -> str:
@@ -153,10 +154,8 @@ def _get_ig_user_id() -> str:
 
 
 def get_instagram_stats() -> dict:
-    """Instagram 비즈니스 계정 팔로워 + 최근 10개 미디어 좋아요/댓글 평균.
-    instagram_basic 권한으로 직접 조회, 실패 시 Page 중첩 필드로 폴백."""
-    ig_user_id = _get_ig_user_id()
-    token = _token()
+    """Instagram 통계 — INSTAGRAM_ACCESS_TOKEN 우선, 없으면 Facebook Page token 폴백."""
+    ig_token = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "").strip()
 
     followers: int = 0
     following: int = 0
@@ -165,38 +164,75 @@ def get_instagram_stats() -> dict:
     comments_avg: int = 0
     engagement_rate: str = "—"
 
-    try:
-        resp = requests.get(
-            f"{BASE_URL}/{ig_user_id}",
-            params={"fields": "followers_count,following_count,media_count", "access_token": token},
-            timeout=10, verify=ssl_verify(),
-        )
-        if resp.ok:
-            data = resp.json()
-            followers  = data.get("followers_count", 0) or 0
-            following  = data.get("following_count", 0) or 0
-            post_count = data.get("media_count",     0) or 0
-    except Exception:
-        pass
+    if ig_token:
+        try:
+            resp = requests.get(
+                f"{IG_BASE_URL}/me",
+                params={"fields": "followers_count,following_count,media_count", "access_token": ig_token},
+                timeout=10, verify=ssl_verify(),
+            )
+            if resp.ok:
+                data = resp.json()
+                followers  = data.get("followers_count", 0) or 0
+                following  = data.get("following_count", 0) or 0
+                post_count = data.get("media_count",     0) or 0
+        except Exception:
+            pass
 
-    try:
-        media_resp = requests.get(
-            f"{BASE_URL}/{ig_user_id}/media",
-            params={"fields": "like_count,comments_count", "limit": 10, "access_token": token},
-            timeout=10, verify=ssl_verify(),
-        )
-        if media_resp.ok:
-            media = media_resp.json().get("data", [])
-            if media:
-                likes    = [m.get("like_count",     0) for m in media]
-                comments = [m.get("comments_count", 0) for m in media]
-                likes_avg    = sum(likes)    // len(likes)
-                comments_avg = sum(comments) // len(comments)
-                if followers > 0:
-                    eng = (sum(likes) + sum(comments)) / len(media) / followers * 100
-                    engagement_rate = f"{eng:.2f}"
-    except Exception:
-        pass
+        try:
+            media_resp = requests.get(
+                f"{IG_BASE_URL}/me/media",
+                params={"fields": "like_count,comments_count", "limit": 10, "access_token": ig_token},
+                timeout=10, verify=ssl_verify(),
+            )
+            if media_resp.ok:
+                media = media_resp.json().get("data", [])
+                if media:
+                    likes    = [m.get("like_count",     0) for m in media]
+                    comments = [m.get("comments_count", 0) for m in media]
+                    likes_avg    = sum(likes)    // len(likes)
+                    comments_avg = sum(comments) // len(comments)
+                    if followers > 0:
+                        eng = (sum(likes) + sum(comments)) / len(media) / followers * 100
+                        engagement_rate = f"{eng:.2f}"
+        except Exception:
+            pass
+    else:
+        ig_user_id = _get_ig_user_id()
+        token = _token()
+
+        try:
+            resp = requests.get(
+                f"{BASE_URL}/{ig_user_id}",
+                params={"fields": "followers_count,following_count,media_count", "access_token": token},
+                timeout=10, verify=ssl_verify(),
+            )
+            if resp.ok:
+                data = resp.json()
+                followers  = data.get("followers_count", 0) or 0
+                following  = data.get("following_count", 0) or 0
+                post_count = data.get("media_count",     0) or 0
+        except Exception:
+            pass
+
+        try:
+            media_resp = requests.get(
+                f"{BASE_URL}/{ig_user_id}/media",
+                params={"fields": "like_count,comments_count", "limit": 10, "access_token": token},
+                timeout=10, verify=ssl_verify(),
+            )
+            if media_resp.ok:
+                media = media_resp.json().get("data", [])
+                if media:
+                    likes    = [m.get("like_count",     0) for m in media]
+                    comments = [m.get("comments_count", 0) for m in media]
+                    likes_avg    = sum(likes)    // len(likes)
+                    comments_avg = sum(comments) // len(comments)
+                    if followers > 0:
+                        eng = (sum(likes) + sum(comments)) / len(media) / followers * 100
+                        engagement_rate = f"{eng:.2f}"
+        except Exception:
+            pass
 
     return {
         "followers":  followers,
