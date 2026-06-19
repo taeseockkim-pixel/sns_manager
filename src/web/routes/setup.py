@@ -106,6 +106,45 @@ async def save_sns_urls(request: Request):
     )
 
 
+@router.post("/meta/token-status", response_class=HTMLResponse)
+async def meta_token_status(request: Request):
+    from src.api.meta_token import check_token_expiry
+    result = check_token_expiry()
+    if not result.get("valid"):
+        err = result.get("error", "알 수 없는 오류")
+        return HTMLResponse(
+            f'<span class="text-red-600 font-semibold">만료됨 — {err}. '
+            f'<a href="https://developers.facebook.com/tools/explorer/" target="_blank" '
+            f'class="underline">Graph Explorer</a>에서 새 토큰을 발급 후 위에 붙여넣으세요.</span>'
+        )
+    days = result.get("days_left")
+    if days is None:
+        return HTMLResponse('<span class="text-green-600 font-semibold">영구 토큰 (만료 없음)</span>')
+    color = "green" if days > 14 else "amber" if days > 7 else "red"
+    return HTMLResponse(f'<span class="text-{color}-600 font-semibold">유효 — 잔여 {days}일 ({result.get("expiry_dt","")[:10]})</span>')
+
+
+@router.post("/meta/refresh-token", response_class=HTMLResponse)
+async def meta_refresh_token(request: Request):
+    from src.api.meta_token import check_and_refresh_if_needed
+    from src.db import creds as creds_db
+    result = check_and_refresh_if_needed()
+    if result["action"] == "refreshed":
+        # DB에도 갱신된 토큰 저장
+        new_token = os.environ.get("META_PAGE_ACCESS_TOKEN", "")
+        if new_token:
+            creds_db.upsert("META_PAGE_ACCESS_TOKEN", new_token)
+        return HTMLResponse('<span class="text-green-600 font-semibold">갱신 완료 — 60일 연장됨</span>')
+    elif result["action"] == "ok":
+        return HTMLResponse(f'<span class="text-green-600">이미 유효합니다: {result["message"]}</span>')
+    else:
+        return HTMLResponse(
+            f'<span class="text-red-600 font-semibold">갱신 실패: {result["message"][:200]} '
+            f'— <a href="https://developers.facebook.com/tools/explorer/" target="_blank" '
+            f'class="underline">Graph Explorer</a>에서 새 토큰 발급 후 직접 입력하세요.</span>'
+        )
+
+
 @router.get("/instagram", response_class=HTMLResponse)
 async def fetch_instagram_id(request: Request):
     token = os.environ.get("META_PAGE_ACCESS_TOKEN", "")
