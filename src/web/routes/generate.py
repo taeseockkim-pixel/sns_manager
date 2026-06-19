@@ -283,6 +283,8 @@ async def generate_content(
     points: str = Form(default=""),
     platforms: list[str] = Form(...),
     attachment: Optional[UploadFile] = File(default=None),
+    extracted_text: str = Form(default=""),
+    extracted_filename: str = Form(default=""),
     reviewer: str = Depends(verify_credentials),
 ):
     pending_items = queue_db.list_all("pending")
@@ -306,7 +308,19 @@ async def generate_content(
         )
 
     # ── 첨부 파일 처리 ──
-    if attachment and attachment.filename:
+    if extracted_text.strip():
+        # PDF.js가 브라우저에서 미리 추출한 텍스트 사용 (20MB PDF 지원)
+        try:
+            doc_info = _analyze_document(extracted_text)
+            if not topic.strip() and doc_info.get("topic"):
+                topic = doc_info["topic"]
+            if not points.strip() and doc_info.get("points"):
+                points = doc_info["points"]
+            key_features = [f for f in doc_info.get("key_features", []) if f]
+        except Exception as exc:
+            errors.append(f"파일 분석 오류: {str(exc)[:150]}")
+    elif attachment and attachment.filename:
+        # DOCX / TXT / 이미지 직접 업로드 처리 (3MB 이하)
         fname = attachment.filename
         ext = Path(fname).suffix.lower()
         if ext not in _SUPPORTED_EXTS:
@@ -314,12 +328,11 @@ async def generate_content(
         else:
             file_bytes = await attachment.read()
             if len(file_bytes) > _MAX_UPLOAD_BYTES:
-                errors.append(f"파일 크기 초과 ({len(file_bytes) // 1024}KB). 최대 4MB까지 가능합니다.")
+                errors.append(f"파일 크기 초과 ({len(file_bytes) // 1024}KB). 최대 3MB까지 가능합니다. PDF는 자동으로 텍스트 추출되므로 다시 선택해 주세요.")
             else:
                 try:
-                    extracted_text = _extract_text_from_file(file_bytes, fname)
-                    doc_info = _analyze_document(extracted_text)
-                    # 사용자가 입력하지 않은 항목만 파일에서 자동 보완
+                    file_text = _extract_text_from_file(file_bytes, fname)
+                    doc_info = _analyze_document(file_text)
                     if not topic.strip() and doc_info.get("topic"):
                         topic = doc_info["topic"]
                     if not points.strip() and doc_info.get("points"):
