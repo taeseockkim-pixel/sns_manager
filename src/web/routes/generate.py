@@ -74,13 +74,13 @@ def _extract_text_from_file(file_bytes: bytes, filename: str) -> str:
 
     if name.endswith(".pdf"):
         import io
-        import pdfplumber
+        import pypdf
+        reader = pypdf.PdfReader(io.BytesIO(file_bytes))
         pages = []
-        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-            for page in pdf.pages:
-                t = page.extract_text()
-                if t:
-                    pages.append(t.strip())
+        for page in reader.pages:
+            t = page.extract_text()
+            if t:
+                pages.append(t.strip())
         if not pages:
             raise ValueError("PDF에서 텍스트를 추출할 수 없습니다. 스캔 이미지 PDF라면 PNG/JPG로 첨부해 주세요.")
         return "\n\n".join(pages)
