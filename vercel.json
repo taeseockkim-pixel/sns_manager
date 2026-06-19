@@ -11,5 +11,9 @@
       "src": "/(.*)",
       "dest": "/main.py"
     }
+  ],
+  "crons": [
+    { "path": "/cron/daily-meta-token",    "schedule": "0 3 * * *" },
+    { "path": "/cron/daily-threads-token", "schedule": "0 4 * * *" }
   ]
 }

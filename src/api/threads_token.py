@@ -47,7 +47,10 @@ def check_and_refresh_if_needed() -> dict:
     if not token:
         return {"action": "no_token", "message": "Threads 토큰 없음 — /setup에서 OAuth 연결 필요"}
 
-    last_refresh_ts = int(os.environ.get("THREADS_TOKEN_REFRESHED_AT", "0") or "0")
+    # DB에서 타임스탬프 조회 (Vercel 서버리스에서 env 미영속 대비)
+    from src.db import creds as creds_db
+    refreshed_at_db = creds_db.get("THREADS_TOKEN_REFRESHED_AT") or "0"
+    last_refresh_ts = int(os.environ.get("THREADS_TOKEN_REFRESHED_AT") or refreshed_at_db or "0")
     days_since = (time.time() - last_refresh_ts) / 86400
 
     if days_since < 30:
@@ -68,10 +71,12 @@ def check_and_refresh_if_needed() -> dict:
         if not new_token:
             raise RuntimeError("갱신된 Threads 토큰이 응답에 없습니다.")
 
-        _update_env_token({
-            "THREADS_ACCESS_TOKEN": new_token,
-            "THREADS_TOKEN_REFRESHED_AT": str(int(time.time())),
-        })
+        new_ts = str(int(time.time()))
+        _update_env_token({"THREADS_ACCESS_TOKEN": new_token, "THREADS_TOKEN_REFRESHED_AT": new_ts})
+        # Vercel 서버리스 영속을 위해 DB에도 저장
+        from src.db import creds as creds_db
+        creds_db.upsert("THREADS_ACCESS_TOKEN", new_token)
+        creds_db.upsert("THREADS_TOKEN_REFRESHED_AT", new_ts)
         return {"action": "refreshed", "message": "Threads 토큰 자동 갱신 완료 (60일 연장)"}
 
     except Exception as exc:

@@ -29,12 +29,11 @@ def upsert(key: str, value: str) -> None:
 
 
 def load_all_to_env() -> None:
-    """앱 시작 시 DB 자격증명을 os.environ에 로드 (이미 설정된 env 값 우선)."""
+    """앱 시작 시 DB 자격증명을 os.environ에 로드. DB 값이 항상 우선 (갱신된 토큰 반영)."""
     try:
         with db_cursor() as cur:
             cur.execute("SELECT key, value FROM credentials")
             for row in cur.fetchall():
-                if not os.environ.get(row["key"]):
-                    os.environ[row["key"]] = row["value"]
+                os.environ[row["key"]] = row["value"]
     except Exception:
         pass

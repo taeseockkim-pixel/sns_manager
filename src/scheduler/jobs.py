@@ -182,13 +182,15 @@ def _fetch_threads_events(since_id: str = None) -> list:
 
 def daily_meta_token_check():
     """
-    매일 Meta 토큰 만료일 확인 — 7일 이내이면 자동 갱신.
+    매일 Meta 토큰 만료일 확인 — 14일 이내이면 자동 갱신.
     H-04: 갱신 실패 시 재시도 없이 critical 알림.
     """
     from src.api.meta_token import check_and_refresh_if_needed
     result = check_and_refresh_if_needed()
 
     if result["action"] == "refreshed":
+        from src.db import creds as creds_db
+        creds_db.load_all_to_env()
         notif_id = events_db.insert_notification(
             title="[META] 액세스 토큰 자동 갱신 완료",
             body=result["message"],
@@ -232,3 +234,7 @@ def daily_threads_token_check():
             severity="critical",
         )
         bus.publish({"type": "notification.new", "id": notif_id, "severity": "critical"})
+
+    if result["action"] == "refreshed":
+        from src.db import creds as creds_db
+        creds_db.load_all_to_env()

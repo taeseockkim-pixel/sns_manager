@@ -97,6 +97,9 @@ def refresh_token() -> str:
         raise RuntimeError("갱신된 토큰이 응답에 없습니다.")
 
     _update_env_token("META_PAGE_ACCESS_TOKEN", new_token)
+    # Vercel 서버리스 영속을 위해 DB에도 저장 (cold start 후에도 최신 토큰 유지)
+    from src.db import creds as creds_db
+    creds_db.upsert("META_PAGE_ACCESS_TOKEN", new_token)
     return new_token
 
 
@@ -118,7 +121,7 @@ def check_and_refresh_if_needed() -> dict:
     if days_left is None:
         return {"action": "ok", "message": "영구 토큰 (만료 없음)"}
 
-    if days_left > 7:
+    if days_left > 14:
         return {"action": "ok", "message": f"토큰 유효 ({days_left}일 남음)"}
 
     try:

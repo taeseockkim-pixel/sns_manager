@@ -12,7 +12,8 @@ router = APIRouter()
 
 def _verify(authorization: str):
     secret = os.environ.get("CRON_SECRET", "")
-    if not secret or authorization != f"Bearer {secret}":
+    # CRON_SECRET 미설정 시 Vercel 내부 cron 요청 허용, 설정 시 Bearer 검증
+    if secret and authorization != f"Bearer {secret}":
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
