@@ -135,10 +135,6 @@ def _publish_live(item: dict) -> str:
             raise ValueError("Instagram 게시에는 image_url이 필요합니다.")
         result = post_to_instagram(image_url=image_url, caption=text)
         return result.get("id", "")
-    elif platform == "threads":
-        from src.api.threads_client import post_to_threads
-        result = post_to_threads(text)
-        return result.get("id", "")
     else:
         raise ValueError(f"지원하지 않는 플랫폼: {platform}")
 
@@ -218,7 +214,6 @@ def _get_platform_urls() -> dict:
         "x": os.getenv("SNS_URL_X", ""),
         "facebook": os.getenv("SNS_URL_FACEBOOK", ""),
         "instagram": os.getenv("SNS_URL_INSTAGRAM", ""),
-        "threads": os.getenv("SNS_URL_THREADS", ""),
     }
 
 
@@ -229,7 +224,6 @@ def _generate_reply_text(event: dict) -> str:
         "x": "간결하게 140자 이내",
         "facebook": "친근하고 자연스럽게",
         "instagram": "긍정적이고 활기차게",
-        "threads": "간결하게 200자 이내",
     }.get(event.get("platform", ""), "간결하게")
 
     company_desc = os.getenv("COMPANY_DESCRIPTION", "스마트팩토리 솔루션 전문기업")

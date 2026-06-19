@@ -83,7 +83,6 @@ def init_db_extensions():
         cur.execute("INSERT INTO monitor_cursors (platform) VALUES ('x')          ON CONFLICT (platform) DO NOTHING")
         cur.execute("INSERT INTO monitor_cursors (platform) VALUES ('facebook')   ON CONFLICT (platform) DO NOTHING")
         cur.execute("INSERT INTO monitor_cursors (platform) VALUES ('instagram')  ON CONFLICT (platform) DO NOTHING")
-        cur.execute("INSERT INTO monitor_cursors (platform) VALUES ('threads')    ON CONFLICT (platform) DO NOTHING")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS account_snapshots (

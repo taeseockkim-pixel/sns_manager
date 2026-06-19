@@ -75,7 +75,7 @@
     {% if item.platform == "x" %}{% set pbg = "#111827" %}{% set plabel = "X (Twitter)" %}
     {% elif item.platform == "facebook" %}{% set pbg = "#1877f2" %}{% set plabel = "Facebook" %}
     {% elif item.platform == "instagram" %}{% set pbg = "linear-gradient(135deg,#e6683c,#cc2366)" %}{% set plabel = "Instagram" %}
-    {% else %}{% set pbg = "#111827" %}{% set plabel = "Threads" %}
+    {% else %}{% set pbg = "#6b7280" %}{% set plabel = item.platform %}
     {% endif %}
 
     <div style="border:1px solid #e2e8f0;border-radius:10px;margin-bottom:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
@@ -86,8 +86,6 @@
           <span style="color:white;font-size:8px;font-weight:800;line-height:1;">IG</span>
           {% elif item.platform == "facebook" %}
           <span style="color:white;font-size:13px;font-weight:700;line-height:1;">f</span>
-          {% elif item.platform == "threads" %}
-          <span style="color:white;font-size:13px;font-weight:700;line-height:1;">@</span>
           {% else %}
           <span style="color:white;font-size:12px;font-weight:800;line-height:1;">𝕏</span>
           {% endif %}

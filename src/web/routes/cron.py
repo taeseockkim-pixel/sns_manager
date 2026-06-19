@@ -33,9 +33,3 @@ async def cron_daily_meta_token(authorization: str = Header("")):
     return {"ok": True, "job": "daily_meta_token"}
 
 
-@router.post("/cron/daily-threads-token")
-async def cron_daily_threads_token(authorization: str = Header("")):
-    _verify(authorization)
-    from src.scheduler.jobs import daily_threads_token_check
-    daily_threads_token_check()
-    return {"ok": True, "job": "daily_threads_token"}

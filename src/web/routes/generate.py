@@ -242,7 +242,6 @@ def _generate_live(platform: str, topic: str, points: str = "") -> dict:
         "x": "280자 이내, 간결하게, 해시태그 2-3개",
         "instagram": "캡션 스타일, 줄바꿈 활용, 이모지 적절히, 해시태그 5-6개",
         "facebook": "자연스러운 문체, 이모지 1-2개, 해시태그 3-4개",
-        "threads": "500자 이내, 간결하게, 해시태그 2-3개",
     }.get(platform, "280자 이내")
 
     company_desc = os.getenv("COMPANY_DESCRIPTION", "스마트팩토리 솔루션 전문기업")

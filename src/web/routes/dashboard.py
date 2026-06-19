@@ -105,7 +105,6 @@ async def monitoring_page(request: Request, severity: str = Query(default="")):
         "x": os.getenv("SNS_URL_X", ""),
         "facebook": os.getenv("SNS_URL_FACEBOOK", ""),
         "instagram": os.getenv("SNS_URL_INSTAGRAM", ""),
-        "threads": os.getenv("SNS_URL_THREADS", ""),
     }
 
     return templates.TemplateResponse(request, "monitoring.html", {

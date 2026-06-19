@@ -5,7 +5,6 @@ API 자격증명 설정 및 OAuth 흐름 관리
 
 import os
 import secrets
-import time
 from pathlib import Path
 
 import requests
@@ -21,7 +20,6 @@ router = APIRouter(prefix="/setup", tags=["setup"])
 _TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 
-_threads_oauth_state: str | None = None
 _fb_oauth_state: str | None = None
 
 
@@ -29,7 +27,6 @@ def _cred_status() -> dict:
     keys = [
         "META_APP_ID", "META_APP_SECRET", "META_PAGE_ACCESS_TOKEN",
         "META_PAGE_ID", "META_IG_USER_ID",
-        "THREADS_APP_ID", "THREADS_APP_SECRET", "THREADS_USER_ID", "THREADS_ACCESS_TOKEN",
         "X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_TOKEN_SECRET", "X_BEARER_TOKEN",
         "ANTHROPIC_API_KEY",
         "GEMINI_API_KEY",
@@ -43,7 +40,7 @@ def _profile_values() -> dict:
     keys = [
         "COMPANY_DESCRIPTION", "COMPANY_PRODUCTS", "COMPANY_SELLING_POINTS",
         "COMPANY_TARGET", "COMPANY_TONE",
-        "SNS_URL_X", "SNS_URL_FACEBOOK", "SNS_URL_INSTAGRAM", "SNS_URL_THREADS",
+        "SNS_URL_X", "SNS_URL_FACEBOOK", "SNS_URL_INSTAGRAM",
     ]
     return {k: os.environ.get(k, "") for k in keys}
 
@@ -124,7 +121,7 @@ async def save_company_profile(request: Request):
 async def save_sns_urls(request: Request):
     from src.db import creds as creds_db
     form = await request.form()
-    keys = ["SNS_URL_X", "SNS_URL_FACEBOOK", "SNS_URL_INSTAGRAM", "SNS_URL_THREADS"]
+    keys = ["SNS_URL_X", "SNS_URL_FACEBOOK", "SNS_URL_INSTAGRAM"]
     for key in keys:
         v = str(form.get(key, "")).strip()
         creds_db.upsert(key, v)
@@ -399,105 +396,3 @@ async def facebook_auth_callback(
         )
 
 
-@router.get("/threads/auth")
-async def threads_auth_redirect(request: Request):
-    global _threads_oauth_state
-    app_id = os.environ.get("THREADS_APP_ID", "")
-    if not app_id:
-        return HTMLResponse("THREADS_APP_ID가 설정되지 않았습니다.", status_code=400)
-
-    _threads_oauth_state = secrets.token_urlsafe(16)
-    base_url = str(request.base_url).rstrip("/")
-    redirect_uri = f"{base_url}/setup/threads/callback"
-    auth_url = (
-        f"https://threads.net/oauth/authorize"
-        f"?client_id={app_id}"
-        f"&redirect_uri={redirect_uri}"
-        f"&scope=threads_basic,threads_content_publish,threads_read_replies"
-        f"&response_type=code"
-        f"&state={_threads_oauth_state}"
-    )
-    return RedirectResponse(auth_url)
-
-
-@router.get("/threads/callback", response_class=HTMLResponse)
-async def threads_auth_callback(
-    request: Request,
-    code: str = None,
-    state: str = None,
-    error: str = None,
-):
-    global _threads_oauth_state
-
-    if error:
-        return templates.TemplateResponse(
-            request, "setup.html",
-            {"creds": _cred_status(), "page": "setup", "error": f"Threads 인증 취소: {error}"}
-        )
-
-    if not code:
-        return templates.TemplateResponse(
-            request, "setup.html",
-            {"creds": _cred_status(), "page": "setup", "error": "인증 코드가 없습니다."}
-        )
-
-    if state != _threads_oauth_state:
-        return templates.TemplateResponse(
-            request, "setup.html",
-            {"creds": _cred_status(), "page": "setup",
-             "error": "State 불일치 — 다시 시도해 주세요."}
-        )
-    _threads_oauth_state = None
-
-    app_id = os.environ.get("THREADS_APP_ID", "")
-    app_secret = os.environ.get("THREADS_APP_SECRET", "")
-    base_url = str(request.base_url).rstrip("/")
-    redirect_uri = f"{base_url}/setup/threads/callback"
-
-    try:
-        token_resp = requests.post(
-            "https://graph.threads.net/oauth/access_token",
-            data={
-                "client_id": app_id,
-                "client_secret": app_secret,
-                "grant_type": "authorization_code",
-                "redirect_uri": redirect_uri,
-                "code": code,
-            },
-            timeout=15,
-            verify=ssl_verify(),
-        )
-        if not token_resp.ok:
-            raise RuntimeError(f"단기 토큰 교환 실패: {token_resp.text[:300]}")
-
-        token_data = token_resp.json()
-        short_token = token_data.get("access_token", "")
-        user_id = str(token_data.get("user_id", ""))
-
-        long_resp = requests.get(
-            "https://graph.threads.net/access_token",
-            params={
-                "grant_type": "th_exchange_token",
-                "client_secret": app_secret,
-                "access_token": short_token,
-            },
-            timeout=15,
-            verify=ssl_verify(),
-        )
-        long_token = long_resp.json().get("access_token", short_token) if long_resp.ok else short_token
-
-        from src.db import creds as creds_db
-        creds_db.upsert("THREADS_USER_ID", user_id)
-        creds_db.upsert("THREADS_ACCESS_TOKEN", long_token)
-        creds_db.upsert("THREADS_TOKEN_REFRESHED_AT", str(int(time.time())))
-
-        return templates.TemplateResponse(
-            request, "setup.html",
-            {"creds": _cred_status(), "page": "setup",
-             "success": f"Threads 인증 완료! User ID: {user_id} (장기 토큰 60일 유효)"}
-        )
-    except Exception as exc:
-        return templates.TemplateResponse(
-            request, "setup.html",
-            {"creds": _cred_status(), "page": "setup", "error": str(exc)}
-        )

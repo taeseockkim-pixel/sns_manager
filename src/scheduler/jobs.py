@@ -33,10 +33,6 @@ def _has_fb_creds() -> bool:
     return all(os.getenv(k) for k in ["META_PAGE_ACCESS_TOKEN", "META_PAGE_ID"])
 
 
-def _has_threads_creds() -> bool:
-    return all(os.getenv(k) for k in ["THREADS_ACCESS_TOKEN", "THREADS_USER_ID"])
-
-
 def _process_live_x_event(mention: dict) -> dict:
     text = mention.get("text", "")
     sentiment, severity = _classify_event(text)
@@ -88,25 +84,9 @@ def _process_live_fb_event(comment: dict) -> dict:
     }
 
 
-def _process_live_threads_event(reply: dict) -> dict:
-    text = reply.get("text", "")
-    sentiment, severity = _classify_event(text)
-    return {
-        "platform": "threads",
-        "event_type": "reply",
-        "external_id": reply.get("id"),
-        "author": reply.get("username", "unknown"),
-        "text": text,
-        "sentiment": sentiment,
-        "severity": severity,
-        "url": None,
-        "raw": reply,
-    }
-
-
 def hourly_monitor_job():
     """
-    1시간마다 X + Facebook + Threads SNS 폴링.
+    1시간마다 X + Facebook SNS 폴링.
     자격증명이 설정되지 않은 플랫폼은 건너뜀.
     오류 발생 시 재시도 없이 notifications DB에 기록 (H-04).
     """
@@ -115,8 +95,6 @@ def hourly_monitor_job():
         platforms.append(("x", _fetch_x_events))
     if _has_fb_creds():
         platforms.append(("facebook", _fetch_fb_events))
-    if _has_threads_creds():
-        platforms.append(("threads", _fetch_threads_events))
 
     for platform, fetcher in platforms:
         try:
@@ -176,12 +154,6 @@ def _fetch_fb_events(since_id: str = None) -> list:
     return [_process_live_fb_event(c) for c in raw]
 
 
-def _fetch_threads_events(since_id: str = None) -> list:
-    from src.api.threads_client import get_threads_replies
-    raw = get_threads_replies(since_timestamp=since_id)
-    return [_process_live_threads_event(r) for r in raw]
-
-
 def _save_platform_stats() -> None:
     """각 플랫폼 계정 통계 스냅샷 저장 — H-04: 실패해도 조용히 무시."""
     # X
@@ -207,15 +179,6 @@ def _save_platform_stats() -> None:
             events_db.save_account_snapshot("instagram", **get_instagram_stats())
         except Exception:
             pass
-
-    # Threads
-    if _has_threads_creds():
-        try:
-            from src.api.threads_client import get_account_stats as _t_stats
-            events_db.save_account_snapshot("threads", **_t_stats())
-        except Exception:
-            pass
-
 
 def daily_meta_token_check():
     """
@@ -246,32 +209,3 @@ def daily_meta_token_check():
         bus.publish({"type": "notification.new", "id": notif_id, "severity": "critical"})
 
 
-def daily_threads_token_check():
-    """
-    매일 Threads 토큰 체크 — 마지막 갱신 후 30일 경과 시 자동 갱신.
-    H-04: 갱신 실패 시 재시도 없이 critical 알림.
-    """
-    from src.api.threads_token import check_and_refresh_if_needed
-    result = check_and_refresh_if_needed()
-
-    if result["action"] == "refreshed":
-        notif_id = events_db.insert_notification(
-            title="[THREADS] 액세스 토큰 자동 갱신 완료",
-            body=result["message"],
-            type_="system_info",
-            severity="info",
-        )
-        bus.publish({"type": "notification.new", "id": notif_id, "severity": "info"})
-
-    elif result["action"] == "error":
-        notif_id = events_db.insert_notification(
-            title="[THREADS] 토큰 갱신 실패 — OAuth 재연결 필요",
-            body=result["message"],
-            type_="api_error",
-            severity="critical",
-        )
-        bus.publish({"type": "notification.new", "id": notif_id, "severity": "critical"})
-
-    if result["action"] == "refreshed":
-        from src.db import creds as creds_db
-        creds_db.load_all_to_env()
