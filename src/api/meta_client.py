@@ -154,19 +154,39 @@ def _get_ig_user_id() -> str:
 
 def get_instagram_stats() -> dict:
     """Instagram 비즈니스 계정 팔로워 + 최근 10개 미디어 좋아요/댓글 평균.
-    instagram_business_basic 권한 기반 (신규 API)."""
+    instagram_basic 권한으로 직접 조회, 실패 시 Page 중첩 필드로 폴백."""
     ig_user_id = _get_ig_user_id()
     token = _token()
 
-    # instagram_business_basic: followers_count, following_count, media_count
+    data = {}
+    # 직접 조회 시도 (instagram_basic 권한 있을 때)
     resp = requests.get(
         f"{BASE_URL}/{ig_user_id}",
         params={"fields": "followers_count,following_count,media_count", "access_token": token},
         timeout=10, verify=ssl_verify(),
     )
-    if not resp.ok:
-        raise RuntimeError(f"Meta API error {resp.status_code}: {resp.text}")
-    data = resp.json()
+    if resp.ok and resp.json().get("followers_count") is not None:
+        data = resp.json()
+    else:
+        # 폴백: Page 중첩 필드로 조회
+        page_id = os.environ.get("META_PAGE_ID", "")
+        if page_id:
+            fb_resp = requests.get(
+                f"{BASE_URL}/{page_id}",
+                params={
+                    "fields": "instagram_business_account{followers_count,following_count,media_count}",
+                    "access_token": token,
+                },
+                timeout=10, verify=ssl_verify(),
+            )
+            if fb_resp.ok:
+                ig_node = fb_resp.json().get("instagram_business_account", {})
+                data = ig_node if ig_node.get("followers_count") is not None else {}
+        if not data:
+            raise RuntimeError(
+                f"Instagram 통계 조회 실패 (권한 없음). "
+                f"설정 페이지에서 Facebook OAuth 연결을 다시 클릭해 instagram_basic 권한을 포함한 토큰을 재발급하세요."
+            )
     followers = data.get("followers_count", 0)
 
     likes_avg: int = 0

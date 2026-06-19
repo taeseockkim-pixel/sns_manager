@@ -41,6 +41,7 @@ def _profile_values() -> dict:
         "COMPANY_DESCRIPTION", "COMPANY_PRODUCTS", "COMPANY_SELLING_POINTS",
         "COMPANY_TARGET", "COMPANY_TONE",
         "SNS_URL_X", "SNS_URL_FACEBOOK", "SNS_URL_INSTAGRAM",
+        "META_PAGE_ID", "META_IG_USER_ID",
     ]
     return {k: os.environ.get(k, "") for k in keys}
 
@@ -255,7 +256,9 @@ async def facebook_auth_redirect(request: Request):
         "pages_manage_posts",
         "pages_manage_engagement",
         "pages_manage_metadata",
+        "instagram_basic",
         "instagram_manage_comments",
+        "instagram_manage_insights",
         "read_insights",
     ])
     auth_url = (

@@ -177,8 +177,14 @@ def _save_platform_stats() -> None:
         try:
             from src.api.meta_client import get_instagram_stats
             events_db.save_account_snapshot("instagram", **get_instagram_stats())
-        except Exception:
-            pass
+        except Exception as exc:
+            notif_id = events_db.insert_notification(
+                title="[INSTAGRAM] 통계 조회 실패",
+                body=str(exc)[:500],
+                type_="api_error",
+                severity="warning",
+            )
+            bus.publish({"type": "notification.new", "id": notif_id, "severity": "warning"})
 
 def daily_meta_token_check():
     """

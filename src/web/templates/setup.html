@@ -121,14 +121,14 @@
       {{ status_dot(creds['META_IG_USER_ID']) }}
       <span class="text-xs text-slate-600 font-mono">META_IG_USER_ID</span>
       {% if creds['META_IG_USER_ID'] %}
-      <span class="text-xs text-slate-400 ml-1 font-mono">현재값: {{ creds['META_IG_USER_ID'] }}</span>
+      <span class="text-xs text-slate-400 ml-1 font-mono">현재값: {{ profile['META_IG_USER_ID'] }}</span>
       {% endif %}
     </div>
     <form method="post" action="/setup/creds">
       <div class="max-w-sm mb-3">
         <label class="block text-xs font-medium text-slate-500 mb-1 font-mono">META_IG_USER_ID</label>
         <input type="text" name="META_IG_USER_ID"
-               placeholder="{{ creds['META_IG_USER_ID'] if creds['META_IG_USER_ID'] else 'Instagram Business Account ID (숫자)' }}"
+               placeholder="{{ profile['META_IG_USER_ID'] if profile['META_IG_USER_ID'] else 'Instagram Business Account ID (숫자)' }}"
                autocomplete="off"
                class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors">
       </div>
@@ -142,7 +142,7 @@
       <strong>ID 찾는 방법:</strong><br>
       Graph API Explorer에서 아래 쿼리 실행 후 반환된 <code class="bg-slate-100 px-1 rounded font-mono">id</code> 값을 위에 입력하세요:<br>
       <code class="bg-slate-100 px-1 rounded font-mono text-xs mt-1 inline-block">
-        /{{ creds['META_PAGE_ID'] or 'PAGE_ID' }}?fields=instagram_business_account,connected_instagram_account
+        /{{ profile['META_PAGE_ID'] or 'PAGE_ID' }}?fields=instagram_business_account,connected_instagram_account
       </code><br>
       <span class="text-slate-400 mt-1 inline-block">instagram_basic 권한 없으면: Meta 개발자 콘솔 → CIMON_SNS → Add Product → Instagram Graph API → Set Up</span>
     </div>
