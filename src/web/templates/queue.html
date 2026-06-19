@@ -25,7 +25,7 @@
       <div>
         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
           제품 자료 첨부
-          <span class="normal-case font-normal text-slate-400 ml-1">— PDF/DOCX/TXT/이미지 첨부 시 AI가 주제·포인트 자동 추출 (선택, 최대 4MB)</span>
+          <span class="normal-case font-normal text-slate-400 ml-1">— PDF/DOCX/TXT/이미지 첨부 시 AI가 주제·포인트 자동 추출 (선택, 최대 3MB)</span>
         </label>
         <div class="flex items-center gap-3">
           <button type="button"
@@ -40,7 +40,16 @@
           <input type="file" name="attachment" id="file-input" style="display:none"
                  accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp"
                  onchange="
-                   var name = this.files[0] ? this.files[0].name : '';
+                   var f = this.files[0];
+                   if (f && f.size > 3 * 1024 * 1024) {
+                     var mb = (f.size / 1024 / 1024).toFixed(1);
+                     document.getElementById('file-name').textContent = '파일 너무 큼 (' + mb + 'MB — 최대 3MB)';
+                     document.getElementById('file-name').className = 'text-sm text-red-500 font-medium';
+                     document.getElementById('file-clear').style.display = 'inline-flex';
+                     this.value = '';
+                     return;
+                   }
+                   var name = f ? f.name : '';
                    document.getElementById('file-name').textContent = name || '선택된 파일 없음';
                    document.getElementById('file-name').className = name ? 'text-sm text-slate-700 font-medium' : 'text-sm text-slate-400';
                    document.getElementById('file-clear').style.display = name ? 'inline-flex' : 'none';
@@ -195,9 +204,11 @@ function onGenerateEnd(evt) {
 
   var xhr = evt.detail && evt.detail.xhr;
   if (xhr && xhr.status >= 400) {
-    var msg = xhr.status === 504
+    var msg = xhr.status === 413
+      ? '파일이 너무 큽니다. Vercel 서버 제한(4.5MB)을 초과했습니다. PDF를 압축하거나 3MB 이하 파일을 사용해 주세요.'
+      : xhr.status === 504
       ? '처리 시간이 초과되었습니다. PDF가 너무 크거나 네트워크가 느릴 수 있습니다. 잠시 후 다시 시도해 주세요.'
-      : '오류가 발생했습니다 (HTTP ' + xhr.status + '). 잠시 후 다시 시도해 주세요. — ' + (xhr.responseText || '').slice(0, 200);
+      : '오류가 발생했습니다 (HTTP ' + xhr.status + '). 잠시 후 다시 시도해 주세요.';
     document.getElementById('generate-result').innerHTML =
       '<div style="margin-top:12px;padding:14px 16px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;color:#dc2626;font-size:14px;line-height:1.5;">⚠️ ' + msg + '</div>';
     document.getElementById('generate-result').scrollIntoView({behavior:'smooth', block:'nearest'});

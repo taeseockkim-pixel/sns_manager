@@ -25,7 +25,7 @@ _TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
 _DELIVERABLES_DIR = Path(__file__).resolve().parents[3] / "deliverables"
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 
-_MAX_UPLOAD_BYTES = 4 * 1024 * 1024  # 4 MB
+_MAX_UPLOAD_BYTES = 3 * 1024 * 1024  # 3 MB (Vercel 4.5MB 제한 내 안전 마진)
 _SUPPORTED_EXTS = (".pdf", ".docx", ".txt", ".png", ".jpg", ".jpeg", ".gif", ".webp")
 
 
