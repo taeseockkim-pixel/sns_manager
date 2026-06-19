@@ -8,6 +8,8 @@ import os
 import requests
 from requests_oauthlib import OAuth1
 
+from src.api._ssl import ssl_verify
+
 
 BASE_URL = "https://api.twitter.com/2"
 
@@ -32,6 +34,7 @@ def post_tweet(text: str) -> dict:
         json={"text": text},
         auth=_auth(),
         timeout=10,
+        verify=ssl_verify(),
     )
     if not resp.ok:
         raise RuntimeError(f"X API error {resp.status_code}: {resp.text}")
@@ -44,6 +47,7 @@ def delete_tweet(tweet_id: str) -> bool:
         f"{BASE_URL}/tweets/{tweet_id}",
         auth=_auth(),
         timeout=10,
+        verify=ssl_verify(),
     )
     return resp.ok
 
@@ -59,6 +63,7 @@ def get_mentions(since_id: str = None) -> list:
         params={"query": f"to:{_get_username()} -is:retweet", **params},
         auth=_auth(),
         timeout=10,
+        verify=ssl_verify(),
     )
     if not resp.ok:
         raise RuntimeError(f"X API error {resp.status_code}: {resp.text}")
@@ -66,5 +71,5 @@ def get_mentions(since_id: str = None) -> list:
 
 
 def _get_username() -> str:
-    resp = requests.get(f"{BASE_URL}/users/me", auth=_auth(), timeout=10)
+    resp = requests.get(f"{BASE_URL}/users/me", auth=_auth(), timeout=10, verify=ssl_verify())
     return resp.json()["data"]["username"]

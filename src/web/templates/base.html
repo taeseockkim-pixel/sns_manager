@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}CIMON SNS Manager{% endblock %}</title>
-  <!-- Noto Sans KR — 전문적인 한국어 타이포그래피 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -15,10 +14,8 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: [
-              'Noto Sans KR', '-apple-system', 'BlinkMacSystemFont',
-              'Apple SD Gothic Neo', 'Malgun Gothic', 'sans-serif'
-            ]
+            sans: ['Noto Sans KR', '-apple-system', 'BlinkMacSystemFont',
+                   'Apple SD Gothic Neo', 'Malgun Gothic', 'sans-serif']
           }
         }
       }
@@ -31,13 +28,16 @@
     .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
     .htmx-request .htmx-indicator { opacity: 1; }
     .htmx-request.htmx-indicator { opacity: 1; }
+
+    /* app.js가 직접 참조 — 클래스명 변경 금지 */
     .nav-badge {
       display: inline-flex; align-items: center; justify-content: center;
       min-width: 1.25em; padding: 1px 5px; border-radius: 9999px;
       font-size: 10px; font-weight: 700; line-height: 1.4; transition: opacity 150ms;
     }
     .nav-badge-hidden { visibility: hidden; }
-    /* 섹션 번호 스타일 */
+
+    /* 섹션 라벨 */
     .section-label {
       display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
     }
@@ -50,87 +50,253 @@
       text-transform: uppercase; letter-spacing: 0.08em;
     }
     .section-label-line {
-      flex: 1; height: 1px; background: #f3f4f6;
+      flex: 1; height: 1px; background: #e2e8f0;
+    }
+
+    /* 사이드바 활성 좌측 accent */
+    .sidebar-active::before {
+      content: '';
+      position: absolute; left: 0; top: 50%;
+      transform: translateY(-50%);
+      width: 3px; height: 60%;
+      background: #6366f1;
+      border-radius: 0 2px 2px 0;
+    }
+
+    /* 사이드바 슬라이드 애니메이션 */
+    #sidebar-mobile {
+      transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
     }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen text-gray-900">
+<body class="bg-slate-50 min-h-screen text-slate-900">
 
-  <!-- 상단 네비게이션 — 라이트 모드 -->
-  <nav class="sticky top-0 z-50 bg-white border-b border-gray-200">
-    <div class="max-w-7xl mx-auto px-6 lg:px-8">
-      <div class="flex items-center h-14">
+<div class="flex min-h-screen">
 
-        <!-- 로고 -->
-        <a href="/" class="flex items-center gap-2.5 shrink-0 mr-6">
-          <div class="w-7 h-7 rounded flex items-center justify-center bg-slate-900">
-            <span class="text-white font-black" style="font-size:11px;letter-spacing:-0.5px;">C</span>
-          </div>
-          <span class="text-slate-900 font-bold text-sm tracking-tight">CIMON SNS</span>
-        </a>
+  <!-- ── 데스크탑 사이드바 (lg 이상, fixed) ── -->
+  <aside class="hidden lg:flex flex-col w-60 bg-slate-900 fixed inset-y-0 left-0 z-40">
 
-        <!-- 네비 링크 (언더라인 탭 스타일) -->
-        <div class="flex items-center h-14 text-sm">
-          <a href="/" class="px-3 h-full flex items-center font-medium border-b-2 transition-colors
-            {% if page == 'dashboard' %}border-indigo-600 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-800{% endif %}">
-            대시보드
-          </a>
-          <a href="/queue" class="px-3 h-full flex items-center font-medium border-b-2 transition-colors gap-1.5
-            {% if page == 'queue' %}border-indigo-600 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-800{% endif %}">
-            승인 대기열
-            <span class="nav-badge bg-amber-500 text-white {% if not (counts is defined and counts.pending > 0) %}nav-badge-hidden{% endif %}">{{ counts.pending if counts is defined and counts.pending > 0 else '0' }}</span>
-          </a>
-          <a href="/monitoring" class="px-3 h-full flex items-center font-medium border-b-2 transition-colors
-            {% if page == 'monitoring' %}border-indigo-600 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-800{% endif %}">
-            모니터링
-          </a>
-          <a href="/notifications" class="px-3 h-full flex items-center font-medium border-b-2 transition-colors gap-1.5
-            {% if page == 'notifications' %}border-indigo-600 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-800{% endif %}">
-            알림
-            <span id="notif-count"
-              class="nav-badge bg-red-500 text-white {% if not unread_count %}nav-badge-hidden{% endif %}"
-              >{{ unread_count or '0' }}</span>
-          </a>
-          <a href="/publish-log" class="px-3 h-full flex items-center font-medium border-b-2 transition-colors
-            {% if page == 'publish_log' %}border-indigo-600 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-800{% endif %}">
-            게시 이력
-          </a>
-          <a href="/deliverables" class="px-3 h-full flex items-center font-medium border-b-2 transition-colors
-            {% if page == 'deliverables' %}border-indigo-600 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-800{% endif %}">
-            산출물
-          </a>
-          <a href="/setup" class="px-3 h-full flex items-center font-medium border-b-2 transition-colors
-            {% if page == 'setup' %}border-indigo-600 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-800{% endif %}">
-            설정
-          </a>
-        </div>
-
-        <!-- 우측 상태 -->
-        <div class="flex items-center gap-3 ml-auto shrink-0">
-          {% if api_mode is defined and api_mode == 'mock' %}
-          <span class="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-0.5">MOCK</span>
-          {% else %}
-          <span class="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-0.5">LIVE</span>
-          {% endif %}
-          <div class="w-1.5 h-1.5 rounded-full bg-green-500" title="서버 정상"></div>
-        </div>
-
+    <!-- 로고 -->
+    <div class="flex items-center gap-3 px-5 h-16 border-b border-slate-800 shrink-0">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-600 shrink-0">
+        <span class="text-white font-black" style="font-size:13px;letter-spacing:-0.5px;">C</span>
+      </div>
+      <div class="min-w-0">
+        <p class="text-white font-bold text-sm tracking-tight leading-none">CIMON SNS</p>
+        <p class="text-slate-500 text-xs mt-0.5 leading-none">Manager</p>
       </div>
     </div>
-  </nav>
 
-  <!-- 본문 -->
-  <main class="max-w-7xl mx-auto px-6 lg:px-8 py-8">
-    {% block content %}{% endblock %}
-  </main>
+    <!-- 네비게이션 -->
+    <nav class="flex-1 px-3 py-5 space-y-0.5 overflow-y-auto">
 
-  <!-- 푸터 -->
-  <footer class="border-t border-gray-100 mt-16 py-5">
-    <div class="max-w-7xl mx-auto px-6 text-center" style="font-size:11px;color:#9ca3af;">
-      CIMON SNS Manager &nbsp;·&nbsp; H-01 Human-in-the-Loop 원칙 준수 &nbsp;·&nbsp; IPO 준비 단계 운영
+      <p class="text-slate-600 text-xs font-semibold uppercase tracking-widest px-3 pb-2">운영</p>
+
+      <a href="/" class="relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors
+        {% if page == 'dashboard' %}sidebar-active bg-slate-800 text-white font-semibold{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+        </svg>
+        대시보드
+      </a>
+
+      <a href="/queue" class="relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors
+        {% if page == 'queue' %}sidebar-active bg-slate-800 text-white font-semibold{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        승인 대기열
+        <span class="nav-badge bg-amber-500 text-white ml-auto
+          {% if not (counts is defined and counts.pending > 0) %}nav-badge-hidden{% endif %}">
+          {{ counts.pending if counts is defined and counts.pending > 0 else '0' }}
+        </span>
+      </a>
+
+      <a href="/monitoring" class="relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors
+        {% if page == 'monitoring' %}sidebar-active bg-slate-800 text-white font-semibold{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+        모니터링
+      </a>
+
+      <a href="/notifications" class="relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors
+        {% if page == 'notifications' %}sidebar-active bg-slate-800 text-white font-semibold{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+        </svg>
+        알림
+        <!-- app.js updateNotifCount()가 이 id를 직접 참조 — 변경 금지 -->
+        <span id="notif-count"
+              class="nav-badge bg-red-500 text-white ml-auto
+                {% if not unread_count %}nav-badge-hidden{% endif %}">
+          {{ unread_count or '0' }}
+        </span>
+      </a>
+
+      <a href="/publish-log" class="relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors
+        {% if page == 'publish_log' %}sidebar-active bg-slate-800 text-white font-semibold{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        게시 이력
+      </a>
+
+      <div class="my-3 border-t border-slate-800"></div>
+      <p class="text-slate-600 text-xs font-semibold uppercase tracking-widest px-3 pb-2">자료</p>
+
+      <a href="/deliverables" class="relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors
+        {% if page == 'deliverables' %}sidebar-active bg-slate-800 text-white font-semibold{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+        </svg>
+        산출물
+      </a>
+
+      <a href="/setup" class="relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors
+        {% if page == 'setup' %}sidebar-active bg-slate-800 text-white font-semibold{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        설정
+      </a>
+
+    </nav>
+
+    <!-- 사이드바 하단 -->
+    <div class="px-4 py-4 border-t border-slate-800 shrink-0">
+      <div class="flex items-center gap-2 mb-1.5">
+        <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></div>
+        <span class="text-xs text-slate-500">서버 정상</span>
+      </div>
+      <p class="text-xs text-slate-600 leading-relaxed">H-01 Human-in-the-Loop 준수</p>
     </div>
-  </footer>
 
-  <script src="/static/app.js"></script>
+  </aside>
+
+  <!-- ── 모바일 오버레이 ── -->
+  <div id="sidebar-overlay"
+       class="lg:hidden fixed inset-0 bg-black/60 z-30 hidden"
+       onclick="closeSidebar()"></div>
+
+  <!-- ── 모바일 사이드바 ── -->
+  <aside id="sidebar-mobile"
+         class="lg:hidden flex flex-col w-72 bg-slate-900 fixed inset-y-0 left-0 z-40 -translate-x-full">
+
+    <div class="flex items-center justify-between px-5 h-16 border-b border-slate-800 shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
+          <span class="text-white font-black" style="font-size:13px;">C</span>
+        </div>
+        <p class="text-white font-bold text-sm">CIMON SNS</p>
+      </div>
+      <button onclick="closeSidebar()" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <nav class="flex-1 px-3 py-5 space-y-0.5 overflow-y-auto">
+      <p class="text-slate-600 text-xs font-semibold uppercase tracking-widest px-3 pb-2">운영</p>
+      <a href="/" onclick="closeSidebar()" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm {% if page == 'dashboard' %}bg-slate-800 text-white font-semibold{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        대시보드
+      </a>
+      <a href="/queue" onclick="closeSidebar()" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm {% if page == 'queue' %}bg-slate-800 text-white font-semibold{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        승인 대기열
+      </a>
+      <a href="/monitoring" onclick="closeSidebar()" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm {% if page == 'monitoring' %}bg-slate-800 text-white font-semibold{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        모니터링
+      </a>
+      <a href="/notifications" onclick="closeSidebar()" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm {% if page == 'notifications' %}bg-slate-800 text-white font-semibold{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        알림
+        <span id="notif-count-mobile"
+              class="nav-badge bg-red-500 text-white ml-auto {% if not unread_count %}nav-badge-hidden{% endif %}">
+          {{ unread_count or '0' }}
+        </span>
+      </a>
+      <a href="/publish-log" onclick="closeSidebar()" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm {% if page == 'publish_log' %}bg-slate-800 text-white font-semibold{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        게시 이력
+      </a>
+      <div class="my-3 border-t border-slate-800"></div>
+      <p class="text-slate-600 text-xs font-semibold uppercase tracking-widest px-3 pb-2">자료</p>
+      <a href="/deliverables" onclick="closeSidebar()" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm {% if page == 'deliverables' %}bg-slate-800 text-white font-semibold{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        산출물
+      </a>
+      <a href="/setup" onclick="closeSidebar()" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm {% if page == 'setup' %}bg-slate-800 text-white font-semibold{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        설정
+      </a>
+    </nav>
+
+    <div class="px-4 py-4 border-t border-slate-800 shrink-0">
+      <div class="flex items-center gap-2 mb-1.5">
+        <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></div>
+        <span class="text-xs text-slate-500">서버 정상</span>
+      </div>
+      <p class="text-xs text-slate-600">H-01 Human-in-the-Loop 준수</p>
+    </div>
+  </aside>
+
+  <!-- ── 메인 콘텐츠 ── -->
+  <div class="flex-1 lg:ml-60 min-w-0 flex flex-col">
+
+    <!-- 모바일 상단 바 -->
+    <header class="lg:hidden flex items-center gap-3 px-4 h-14 bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0">
+      <button onclick="openSidebar()"
+              class="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded bg-indigo-600 flex items-center justify-center">
+          <span class="text-white font-black" style="font-size:10px;">C</span>
+        </div>
+        <span class="font-bold text-sm text-slate-900">CIMON SNS</span>
+      </div>
+      <a href="/notifications" class="ml-auto p-1.5 text-slate-500 hover:text-slate-800 relative">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+        </svg>
+      </a>
+    </header>
+
+    <!-- 페이지 콘텐츠 -->
+    <main class="flex-1 max-w-6xl w-full mx-auto px-6 lg:px-10 py-8">
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- 푸터 -->
+    <footer class="border-t border-slate-200 py-4 px-6 shrink-0">
+      <p style="font-size:11px;color:#94a3b8;" class="text-center">
+        CIMON SNS Manager &nbsp;·&nbsp; H-01 Human-in-the-Loop 원칙 준수 &nbsp;·&nbsp; IPO 준비 단계
+      </p>
+    </footer>
+
+  </div>
+</div>
+
+<script>
+  function openSidebar() {
+    document.getElementById('sidebar-mobile').classList.remove('-translate-x-full');
+    document.getElementById('sidebar-overlay').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar-mobile').classList.add('-translate-x-full');
+    document.getElementById('sidebar-overlay').classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+</script>
+
+<script src="/static/app.js"></script>
 </body>
 </html>

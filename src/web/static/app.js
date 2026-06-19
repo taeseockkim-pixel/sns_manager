@@ -49,15 +49,12 @@
   };
 
   function updateNotifCount(count) {
-    const el = document.getElementById('notif-count');
-    if (!el) return;
-    if (count > 0) {
-      el.textContent = count;
-      el.classList.remove('nav-badge-hidden');
-    } else {
-      el.textContent = '0';
-      el.classList.add('nav-badge-hidden');
-    }
+    ['notif-count', 'notif-count-mobile'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = count > 0 ? count : '0';
+      el.classList.toggle('nav-badge-hidden', count <= 0);
+    });
   }
 
   function showToast(severity, message) {

@@ -1,43 +1,45 @@
-<tr id="queue-row-{{ item.id }}" class="hover:bg-gray-50 transition-colors">
-  <td class="px-5 py-4 text-gray-400 font-mono text-xs">#{{ item.id }}</td>
+<tr id="queue-row-{{ item.id }}" class="hover:bg-slate-50 transition-colors">
+  <td class="px-5 py-4 text-slate-400 font-mono text-xs">#{{ item.id }}</td>
 
   <td class="px-5 py-4">
     {% if item.platform == 'x' %}
-    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-white font-bold text-xs" style="background:#111827;">X</span>
+    <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white font-bold text-xs" style="background:#111827;">X</span>
     {% elif item.platform == 'facebook' %}
-    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-white font-bold text-xs" style="background:#1877f2;">f</span>
+    <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white font-bold text-xs" style="background:#1877f2;">f</span>
+    {% elif item.platform == 'threads' %}
+    <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white font-bold text-xs" style="background:#111827;">@</span>
     {% else %}
-    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-white font-bold" style="background:linear-gradient(135deg,#e6683c,#cc2366);font-size:9px;">IG</span>
+    <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white font-bold" style="background:linear-gradient(135deg,#e6683c,#cc2366);font-size:9px;">IG</span>
     {% endif %}
   </td>
 
   <td class="px-5 py-4">
-    <span class="font-bold text-sm {% if item.brand_safety_score >= 80 %}text-green-600{% else %}text-red-500{% endif %}">
+    <span class="font-bold text-sm {% if item.brand_safety_score >= 80 %}text-emerald-600{% else %}text-red-500{% endif %}">
       {{ "%.0f"|format(item.brand_safety_score) }}
     </span>
-    <div class="w-14 h-1 rounded-full bg-gray-100 mt-1.5">
-      <div class="h-1 rounded-full {% if item.brand_safety_score >= 80 %}bg-green-500{% else %}bg-red-500{% endif %}"
+    <div class="w-14 h-1 rounded-full bg-slate-100 mt-1.5">
+      <div class="h-1 rounded-full {% if item.brand_safety_score >= 80 %}bg-emerald-500{% else %}bg-red-500{% endif %}"
            style="width:{{ item.brand_safety_score }}%"></div>
     </div>
   </td>
 
   <td class="px-5 py-4 max-w-xs">
-    <p class="text-gray-900 font-semibold text-sm truncate">{{ item.topic or '(주제 없음)' }}</p>
-    <p class="text-gray-500 text-xs mt-0.5 truncate" title="{{ item.ko_text }}">
+    <p class="text-slate-900 font-semibold text-sm truncate">{{ item.topic or '(주제 없음)' }}</p>
+    <p class="text-slate-500 text-xs mt-0.5 truncate" title="{{ item.ko_text }}">
       🇰🇷 {{ item.ko_text[:60] }}{% if item.ko_text|length > 60 %}…{% endif %}
     </p>
-    <p class="text-gray-400 text-xs mt-0.5 truncate" title="{{ item.en_text }}">
+    <p class="text-slate-400 text-xs mt-0.5 truncate" title="{{ item.en_text }}">
       🇺🇸 {{ item.en_text[:60] }}{% if item.en_text|length > 60 %}…{% endif %}
     </p>
     {% if item.rejection_reason %}
     <p class="text-red-500 text-xs mt-1 font-medium">반려: {{ item.rejection_reason }}</p>
     {% endif %}
     {% if item.reviewed_by %}
-    <p class="text-gray-400 text-xs mt-0.5">처리자: {{ item.reviewed_by }}</p>
+    <p class="text-slate-400 text-xs mt-0.5">처리자: {{ item.reviewed_by }}</p>
     {% endif %}
   </td>
 
-  <td class="px-5 py-4 text-xs text-gray-400">
+  <td class="px-5 py-4 text-xs text-slate-400 tabular-nums">
     {{ item.created_at[:16] if item.created_at else '-' }}
   </td>
 
@@ -50,8 +52,7 @@
         hx-swap="outerHTML"
         hx-confirm="ID {{ item.id }} 콘텐츠를 승인하시겠습니까?"
         hx-indicator="#spinner-{{ item.id }}"
-        class="px-3 py-1.5 text-white text-xs font-semibold rounded-lg transition-colors"
-        style="background:#16a34a;" onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+        class="px-3 py-1.5 text-white text-xs font-semibold rounded-lg transition-colors bg-emerald-600 hover:bg-emerald-700">
         ✓ 승인
       </button>
       <button
@@ -63,23 +64,22 @@
         class="px-3 py-1.5 text-red-600 text-xs font-semibold rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 transition-colors">
         ✕ 반려
       </button>
-      <span id="spinner-{{ item.id }}" class="htmx-indicator text-xs text-gray-400 self-center">처리중…</span>
+      <span id="spinner-{{ item.id }}" class="htmx-indicator text-xs text-slate-400 self-center">처리중…</span>
     </div>
 
     {% elif item.approved and not item.rejection_reason %}
     <div class="flex items-center gap-2">
-      <span class="text-xs font-semibold text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-200">✓ 승인됨</span>
+      <span class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">✓ 승인됨</span>
       <button
         hx-post="/publish/{{ item.id }}"
         hx-target="#queue-row-{{ item.id }}"
         hx-swap="outerHTML"
         hx-confirm="실제 SNS에 게시합니다. 계속하시겠습니까?"
         hx-indicator="#spinner-{{ item.id }}"
-        class="px-3 py-1.5 text-white text-xs font-semibold rounded-lg transition-colors"
-        style="background:#2563eb;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">
+        class="px-3 py-1.5 text-white text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 transition-colors">
         ▶ 게시
       </button>
-      <span id="spinner-{{ item.id }}" class="htmx-indicator text-xs text-gray-400 self-center">게시 중…</span>
+      <span id="spinner-{{ item.id }}" class="htmx-indicator text-xs text-slate-400 self-center">게시 중…</span>
     </div>
 
     {% elif item.rejection_reason %}

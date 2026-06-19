@@ -10,6 +10,7 @@ import smtplib
 import requests
 from email.mime.text import MIMEText
 
+from src.api._ssl import ssl_verify
 from src.api.x_client import get_mentions
 
 
@@ -34,7 +35,7 @@ def _send_alert(message: str):
     """이슈 알림 발송 (Slack 우선, 없으면 이메일)."""
     slack_url = os.getenv("SLACK_WEBHOOK_URL")
     if slack_url:
-        requests.post(slack_url, json={"text": f"🚨 SNS 이슈 감지:\n{message}"}, timeout=5)
+        requests.post(slack_url, json={"text": f"🚨 SNS 이슈 감지:\n{message}"}, timeout=5, verify=ssl_verify())
         return
 
     email = os.getenv("ALERT_EMAIL", "taeseock.kim@cimon.com")

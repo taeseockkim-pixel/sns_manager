@@ -31,14 +31,30 @@ def _cred_status() -> dict:
         "THREADS_APP_ID", "THREADS_APP_SECRET", "THREADS_USER_ID", "THREADS_ACCESS_TOKEN",
         "X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_TOKEN_SECRET", "X_BEARER_TOKEN",
         "ANTHROPIC_API_KEY",
+        "GEMINI_API_KEY",
+        "GROQ_API_KEY",
     ]
     return {k: bool(os.environ.get(k)) for k in keys}
+
+
+def _profile_values() -> dict:
+    """회사 프로필 및 SNS 채널 URL의 현재 값 반환."""
+    keys = [
+        "COMPANY_DESCRIPTION", "COMPANY_PRODUCTS", "COMPANY_SELLING_POINTS",
+        "COMPANY_TARGET", "COMPANY_TONE",
+        "SNS_URL_X", "SNS_URL_FACEBOOK", "SNS_URL_INSTAGRAM", "SNS_URL_THREADS",
+    ]
+    return {k: os.environ.get(k, "") for k in keys}
 
 
 @router.get("", response_class=HTMLResponse)
 async def setup_page(request: Request):
     return templates.TemplateResponse(
-        request, "setup.html", {"creds": _cred_status(), "page": "setup"}
+        request, "setup.html", {
+            "creds": _cred_status(),
+            "profile": _profile_values(),
+            "page": "setup",
+        }
     )
 
 
@@ -51,6 +67,43 @@ async def save_creds(request: Request):
         if v:
             creds_db.upsert(key, v)
     return RedirectResponse("/setup", status_code=303)
+
+
+@router.post("/company-profile", response_class=HTMLResponse)
+async def save_company_profile(request: Request):
+    from src.db import creds as creds_db
+    form = await request.form()
+    keys = ["COMPANY_DESCRIPTION", "COMPANY_PRODUCTS", "COMPANY_SELLING_POINTS",
+            "COMPANY_TARGET", "COMPANY_TONE"]
+    for key in keys:
+        v = str(form.get(key, "")).strip()
+        creds_db.upsert(key, v)
+    return templates.TemplateResponse(
+        request, "setup.html", {
+            "creds": _cred_status(),
+            "profile": _profile_values(),
+            "page": "setup",
+            "success": "회사/제품 프로필이 저장됐습니다.",
+        }
+    )
+
+
+@router.post("/sns-urls", response_class=HTMLResponse)
+async def save_sns_urls(request: Request):
+    from src.db import creds as creds_db
+    form = await request.form()
+    keys = ["SNS_URL_X", "SNS_URL_FACEBOOK", "SNS_URL_INSTAGRAM", "SNS_URL_THREADS"]
+    for key in keys:
+        v = str(form.get(key, "")).strip()
+        creds_db.upsert(key, v)
+    return templates.TemplateResponse(
+        request, "setup.html", {
+            "creds": _cred_status(),
+            "profile": _profile_values(),
+            "page": "setup",
+            "success": "SNS 채널 링크가 저장됐습니다.",
+        }
+    )
 
 
 @router.get("/instagram", response_class=HTMLResponse)

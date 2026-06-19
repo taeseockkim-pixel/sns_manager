@@ -73,7 +73,7 @@ async def publish_content(
     if not item.get("approved"):
         return HTMLResponse("<tr><td colspan='6' class='text-red-600 p-4'>H-01: 승인되지 않은 콘텐츠입니다.</td></tr>")
 
-    api_mode = os.getenv("API_MODE", "mock").lower()
+    api_mode = os.getenv("API_MODE", "live").lower()
     try:
         if api_mode == "mock":
             mock_post_id = f"mock-{item['platform']}-{uuid.uuid4().hex[:8]}"
@@ -130,6 +130,10 @@ def _publish_live(item: dict) -> str:
             raise ValueError("Instagram 게시에는 image_url이 필요합니다.")
         result = post_to_instagram(image_url=image_url, caption=text)
         return result.get("id", "")
+    elif platform == "threads":
+        from src.api.threads_client import post_to_threads
+        result = post_to_threads(text)
+        return result.get("id", "")
     else:
         raise ValueError(f"지원하지 않는 플랫폼: {platform}")
 
@@ -147,9 +151,88 @@ async def mark_all_read():
     return HTMLResponse('<span id="notif-count-wrapper"></span>')
 
 
+@router.post("/admin/wipe-monitoring", response_class=HTMLResponse)
+async def wipe_monitoring_events(reviewer: str = Depends(verify_credentials)):
+    from src.db.migrations import wipe_mock_events
+    wipe_mock_events()
+    return HTMLResponse("", headers={"HX-Redirect": "/monitoring"})
+
+
 @router.get("/partial/monitor-event/{event_id}", response_class=HTMLResponse)
 async def partial_monitor_event(request: Request, event_id: int):
     event = events_db.get_event(event_id)
     if not event:
         return HTMLResponse("")
-    return templates.TemplateResponse(request, "partials/monitor_event_row.html", {"event": event})
+    platform_urls = _get_platform_urls()
+    return templates.TemplateResponse(request, "partials/monitor_event_row.html",
+        {"event": event, "platform_urls": platform_urls})
+
+
+@router.post("/reply-draft/{event_id}", response_class=HTMLResponse)
+async def generate_reply_draft(
+    request: Request,
+    event_id: int,
+    reviewer: str = Depends(verify_credentials),
+):
+    event = events_db.get_event(event_id)
+    if not event:
+        return HTMLResponse(f'<tr id="reply-draft-{event_id}"></tr>')
+
+    if not os.getenv("GROQ_API_KEY") and not os.getenv("GEMINI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"):
+        return templates.TemplateResponse(
+            request, "partials/reply_draft.html",
+            {"event": event, "draft": "AI API 키가 설정되지 않았습니다. 설정 페이지에서 GEMINI_API_KEY(무료)를 등록해 주세요.", "is_error": True}
+        )
+
+    try:
+        draft = _generate_reply_text(event)
+        events_db.save_reply_draft(event_id, draft)
+    except Exception as exc:
+        draft = f"오류 발생: {str(exc)[:200]}"
+        return templates.TemplateResponse(
+            request, "partials/reply_draft.html",
+            {"event": event, "draft": draft, "is_error": True}
+        )
+
+    return templates.TemplateResponse(
+        request, "partials/reply_draft.html",
+        {"event": event, "draft": draft, "is_error": False}
+    )
+
+
+def _get_platform_urls() -> dict:
+    return {
+        "x": os.getenv("SNS_URL_X", ""),
+        "facebook": os.getenv("SNS_URL_FACEBOOK", ""),
+        "instagram": os.getenv("SNS_URL_INSTAGRAM", ""),
+        "threads": os.getenv("SNS_URL_THREADS", ""),
+    }
+
+
+def _generate_reply_text(event: dict) -> str:
+    from src.ai.client import call_ai
+
+    platform_guide = {
+        "x": "간결하게 140자 이내",
+        "facebook": "친근하고 자연스럽게",
+        "instagram": "긍정적이고 활기차게",
+        "threads": "간결하게 200자 이내",
+    }.get(event.get("platform", ""), "간결하게")
+
+    company_desc = os.getenv("COMPANY_DESCRIPTION", "스마트팩토리 솔루션 전문기업")
+    tone = os.getenv("COMPANY_TONE", "전문적")
+
+    prompt = (
+        f"회사: CIMON ({company_desc})\n"
+        f"브랜드 톤: {tone}\n"
+        f"플랫폼: {event.get('platform', '').upper()} ({platform_guide})\n\n"
+        f"다음 SNS 댓글/멘션에 대한 공식 답변 초안을 한국어로 작성해 주세요:\n"
+        f"작성자: {event.get('author', '알 수 없음')}\n"
+        f"내용: {event.get('text', '')}\n\n"
+        f"요구사항:\n"
+        f"- 회사 공식 계정으로서 정중하고 전문적인 어조\n"
+        f"- 상대방의 의견/질문을 인정하고 감사 표현 포함\n"
+        f"- 필요 시 추가 문의 방법(홈페이지, 이메일 등) 간단히 안내\n"
+        f"- 답변 텍스트만 출력 (JSON 형식 아님, 부가 설명 없이)"
+    )
+    return call_ai(prompt, max_tokens=512).strip()

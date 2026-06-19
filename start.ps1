@@ -52,11 +52,28 @@ Write-Host ""
 Write-Host "============================================" -ForegroundColor DarkGray
 Write-Host ""
 
+# .env 환경변수 주입 (서버 프로세스에 상속됨)
+$envPath = Join-Path $PSScriptRoot "config\.env"
+if (Test-Path $envPath) {
+    Get-Content $envPath | Where-Object { $_ -match "^[A-Z][A-Z0-9_]+=.+" } | ForEach-Object {
+        $parts = $_ -split "=", 2
+        [System.Environment]::SetEnvironmentVariable($parts[0].Trim(), $parts[1].Trim(), "Process")
+    }
+    Write-Host "  [.env]   환경변수 로드 완료 (API_MODE=$env:API_MODE)" -ForegroundColor DarkGray
+}
+
 while ($true) {
     & $PYTHON main.py
     Write-Host ""
     Write-Host "  [재시작] 서버가 종료됐습니다. 3초 후 재시작합니다..." -ForegroundColor Yellow
     Write-Host "  (완전히 종료하려면 Ctrl+C)" -ForegroundColor DarkGray
     Start-Sleep 3
+    # 재시작 시에도 최신 .env 재로드
+    if (Test-Path $envPath) {
+        Get-Content $envPath | Where-Object { $_ -match "^[A-Z][A-Z0-9_]+=.+" } | ForEach-Object {
+            $parts = $_ -split "=", 2
+            [System.Environment]::SetEnvironmentVariable($parts[0].Trim(), $parts[1].Trim(), "Process")
+        }
+    }
     Write-Host ""
 }

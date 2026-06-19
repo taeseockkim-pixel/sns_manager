@@ -59,7 +59,6 @@ async def dashboard(request: Request):
     event_counts = events_db.count_events_by_severity()
     monitor_info = _next_monitor_info()
     last_run = _last_monitor_info()
-    api_mode = "live" if os.getenv("ANTHROPIC_API_KEY") else "mock"
     account_stats = events_db.get_account_stats()
 
     return templates.TemplateResponse(request, "dashboard.html", {
@@ -72,7 +71,6 @@ async def dashboard(request: Request):
         "event_counts": event_counts,
         "monitor_info": monitor_info,
         "last_run": last_run,
-        "api_mode": api_mode,
         "account_stats": account_stats,
     })
 
@@ -103,6 +101,12 @@ async def monitoring_page(request: Request, severity: str = Query(default="")):
     last_run = _last_monitor_info()
     unread_count = events_db.count_unread()
     account_stats = events_db.get_account_stats()
+    platform_urls = {
+        "x": os.getenv("SNS_URL_X", ""),
+        "facebook": os.getenv("SNS_URL_FACEBOOK", ""),
+        "instagram": os.getenv("SNS_URL_INSTAGRAM", ""),
+        "threads": os.getenv("SNS_URL_THREADS", ""),
+    }
 
     return templates.TemplateResponse(request, "monitoring.html", {
         "page": "monitoring",
@@ -113,6 +117,7 @@ async def monitoring_page(request: Request, severity: str = Query(default="")):
         "last_run": last_run,
         "unread_count": unread_count,
         "account_stats": account_stats,
+        "platform_urls": platform_urls,
     })
 
 

@@ -1,0 +1,38 @@
+<tr id="reply-draft-{{ event.id }}"
+    class="{% if is_error %}bg-red-50/60 border-t border-red-100{% else %}bg-indigo-50/60 border-t border-indigo-100{% endif %}">
+  <td colspan="6" class="px-5 py-3">
+    <div class="flex items-start gap-3">
+      <div class="flex-1 min-w-0">
+        <p class="text-xs font-semibold {% if is_error %}text-red-600{% else %}text-indigo-600{% endif %} mb-1.5">
+          {% if is_error %}오류{% else %}AI 답변 초안{% endif %}
+        </p>
+        <p id="draft-text-{{ event.id }}" class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{{ draft }}</p>
+      </div>
+      <div class="flex gap-2 shrink-0 items-start pt-0.5">
+        {% if not is_error %}
+        <button onclick="(function(){var t=document.getElementById('draft-text-{{ event.id }}');if(t){navigator.clipboard.writeText(t.textContent).then(function(){var b=document.getElementById('copy-btn-{{ event.id }}');if(b){b.textContent='복사됨';setTimeout(function(){b.textContent='복사';},1500);}});}})();"
+                id="copy-btn-{{ event.id }}"
+                class="text-xs px-2.5 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+          복사
+        </button>
+        {% if event.url %}
+        <a href="{{ event.url }}" target="_blank" rel="noopener noreferrer"
+           class="text-xs px-2.5 py-1 bg-white text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+          원본 →
+        </a>
+        {% endif %}
+        <button hx-post="/reply-draft/{{ event.id }}"
+                hx-target="#reply-draft-{{ event.id }}"
+                hx-swap="outerHTML"
+                class="text-xs px-2.5 py-1 bg-white text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+          재생성
+        </button>
+        {% endif %}
+        <button onclick="var row=document.getElementById('reply-draft-{{ event.id }}');if(row){row.innerHTML='<td colspan=6></td>';}"
+                class="text-xs px-2.5 py-1 bg-white text-slate-400 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+          닫기
+        </button>
+      </div>
+    </div>
+  </td>
+</tr>

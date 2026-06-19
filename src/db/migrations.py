@@ -83,6 +83,7 @@ def init_db_extensions():
         cur.execute("INSERT INTO monitor_cursors (platform) VALUES ('x')          ON CONFLICT (platform) DO NOTHING")
         cur.execute("INSERT INTO monitor_cursors (platform) VALUES ('facebook')   ON CONFLICT (platform) DO NOTHING")
         cur.execute("INSERT INTO monitor_cursors (platform) VALUES ('instagram')  ON CONFLICT (platform) DO NOTHING")
+        cur.execute("INSERT INTO monitor_cursors (platform) VALUES ('threads')    ON CONFLICT (platform) DO NOTHING")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS account_snapshots (
@@ -103,3 +104,16 @@ def init_db_extensions():
                 updated_at TIMESTAMPTZ DEFAULT NOW()
             )
         """)
+
+        cur.execute("""
+            ALTER TABLE monitoring_events
+            ADD COLUMN IF NOT EXISTS reply_draft TEXT
+        """)
+
+
+def wipe_mock_events():
+    """monitoring_events 전체 초기화 및 커서 리셋. WIPE_MOCK_ON_START=true 시 1회 실행."""
+    with db_cursor() as cur:
+        cur.execute("TRUNCATE monitoring_events RESTART IDENTITY CASCADE")
+    with db_cursor() as cur:
+        cur.execute("UPDATE monitor_cursors SET last_since_id = NULL, last_error = NULL")

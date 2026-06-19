@@ -150,6 +150,14 @@ def get_account_stats() -> list:
         return result
 
 
+def save_reply_draft(event_id: int, draft: str) -> None:
+    with db_cursor() as cur:
+        cur.execute(
+            "UPDATE monitoring_events SET reply_draft = %s WHERE id = %s",
+            (draft, event_id),
+        )
+
+
 def update_cursor(platform: str, last_since_id: str = None, error: str = None):
     with db_cursor() as cur:
         cur.execute("""

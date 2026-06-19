@@ -5,47 +5,11 @@ H-05: 플랫폼 독립 실행
 """
 
 import os
-import random
-import uuid
 from datetime import datetime
 
 from src.db import events as events_db
 from src.notify import bus
-from src.monitor.comment_monitor import _is_negative, NEGATIVE_KEYWORDS, IPO_SENSITIVE_KEYWORDS
-
-
-_MOCK_X_EVENTS = [
-    {"text": "CIMON 로봇 팔 정말 인상적이네요! 제조 현장에서 활용하고 싶습니다.", "sentiment": "neutral", "severity": "info", "author": "@mfg_engineer_kr"},
-    {"text": "CIMON 주가 얼마나 오를까요? 상장 일정 아시는 분?", "sentiment": "ipo_sensitive", "severity": "warning", "author": "@stock_watcher"},
-    {"text": "cimon 제품 사기 아닌가요? 실제로 써보니 광고랑 다름", "sentiment": "negative", "severity": "critical", "author": "@disgruntled_user"},
-    {"text": "CIMON AI 비전 기술 데모 봤는데 대단하던데요 #AI #Manufacturing", "sentiment": "neutral", "severity": "info", "author": "@tech_investor"},
-    {"text": "내부자 정보 없나요? CIMON 실적 어떤지", "sentiment": "ipo_sensitive", "severity": "warning", "author": "@insider_hunter"},
-]
-
-_MOCK_FB_EVENTS = [
-    {"text": "CIMON 제품 문의드립니다. 납기 일정이 어떻게 되나요?", "sentiment": "neutral", "severity": "info", "author": "제조업 담당자"},
-    {"text": "협업 로봇 결함 있다는 소문 사실인가요?", "sentiment": "negative", "severity": "warning", "author": "익명"},
-    {"text": "CES에서 CIMON 부스 정말 좋았습니다! 기술력이 대단하네요.", "sentiment": "neutral", "severity": "info", "author": "전시회 방문객"},
-]
-
-
-def _mock_events(platform: str) -> list:
-    """Mock 이벤트 1-2개 생성 (API_MODE=mock 전용)."""
-    pool = _MOCK_X_EVENTS if platform == "x" else _MOCK_FB_EVENTS
-    sample = random.sample(pool, k=min(2, len(pool)))
-    events = []
-    for item in sample:
-        events.append({
-            "platform": platform,
-            "event_type": "mention" if platform == "x" else "comment",
-            "external_id": f"mock-{platform}-{uuid.uuid4().hex[:8]}",
-            "author": item["author"],
-            "text": item["text"],
-            "sentiment": item["sentiment"],
-            "severity": item["severity"],
-            "url": None,
-        })
-    return events
+from src.monitor.comment_monitor import NEGATIVE_KEYWORDS, IPO_SENSITIVE_KEYWORDS
 
 
 def _classify_event(text: str) -> tuple[str, str]:
@@ -59,6 +23,18 @@ def _classify_event(text: str) -> tuple[str, str]:
     if ipo_hit:
         return "ipo_sensitive", "warning"
     return "neutral", "info"
+
+
+def _has_x_creds() -> bool:
+    return all(os.getenv(k) for k in ["X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_TOKEN_SECRET"])
+
+
+def _has_fb_creds() -> bool:
+    return all(os.getenv(k) for k in ["META_PAGE_ACCESS_TOKEN", "META_PAGE_ID"])
+
+
+def _has_threads_creds() -> bool:
+    return all(os.getenv(k) for k in ["THREADS_ACCESS_TOKEN", "THREADS_USER_ID"])
 
 
 def _process_live_x_event(mention: dict) -> dict:
@@ -80,40 +56,73 @@ def _process_live_x_event(mention: dict) -> dict:
 def _process_live_fb_event(comment: dict) -> dict:
     text = comment.get("message", "")
     sentiment, severity = _classify_event(text)
+    cursor_val = None
+    created_time = comment.get("created_time", "")
+    if created_time:
+        try:
+            from datetime import datetime, timezone
+            dt = datetime.fromisoformat(created_time.replace("Z", "+00:00"))
+            cursor_val = str(int(dt.timestamp()) + 1)  # +1: 동일 시각 재수집 방지
+        except Exception:
+            pass
+
+    # Facebook 댓글 URL: comment.id는 "post_id_comment_id" 형식
+    fb_url = None
+    comment_id = comment.get("id", "")
+    page_id = os.getenv("META_PAGE_ID", "")
+    if page_id and comment_id:
+        post_part = comment_id.split("_")[0] if "_" in comment_id else comment_id
+        fb_url = f"https://www.facebook.com/{page_id}/posts/{post_part}"
+
     return {
         "platform": "facebook",
         "event_type": "comment",
-        "external_id": comment.get("id"),
+        "external_id": comment_id,
         "author": comment.get("from", {}).get("name", "unknown"),
         "text": text,
         "sentiment": sentiment,
         "severity": severity,
-        "url": None,
+        "url": fb_url,
         "raw": comment,
+        "_cursor": cursor_val,
+    }
+
+
+def _process_live_threads_event(reply: dict) -> dict:
+    text = reply.get("text", "")
+    sentiment, severity = _classify_event(text)
+    return {
+        "platform": "threads",
+        "event_type": "reply",
+        "external_id": reply.get("id"),
+        "author": reply.get("username", "unknown"),
+        "text": text,
+        "sentiment": sentiment,
+        "severity": severity,
+        "url": None,
+        "raw": reply,
     }
 
 
 def hourly_monitor_job():
     """
-    1시간마다 X + Facebook SNS 폴링.
-    API_MODE=mock 이면 가상 이벤트 사용.
+    1시간마다 X + Facebook + Threads SNS 폴링.
+    자격증명이 설정되지 않은 플랫폼은 건너뜀.
     오류 발생 시 재시도 없이 notifications DB에 기록 (H-04).
     """
-    api_mode = os.getenv("API_MODE", "mock").lower()
-    platforms = [
-        ("x", _fetch_x_events if api_mode != "mock" else None),
-        ("facebook", _fetch_fb_events if api_mode != "mock" else None),
-    ]
+    platforms = []
+    if _has_x_creds():
+        platforms.append(("x", _fetch_x_events))
+    if _has_fb_creds():
+        platforms.append(("facebook", _fetch_fb_events))
+    if _has_threads_creds():
+        platforms.append(("threads", _fetch_threads_events))
 
     for platform, fetcher in platforms:
         try:
             cursor_info = events_db.get_cursor(platform)
             since_id = cursor_info.get("last_since_id")
-
-            if api_mode == "mock":
-                new_events = _mock_events(platform)
-            else:
-                new_events = fetcher(since_id)
+            new_events = fetcher(since_id)
 
             latest_id = None
             for ev in new_events:
@@ -128,8 +137,8 @@ def hourly_monitor_job():
                     )
                     bus.publish({"type": "notification.new", "id": notif_id, "severity": ev["severity"]})
                     bus.publish({"type": "monitor.event", "id": event_id, "platform": platform})
-                if ev.get("external_id"):
-                    latest_id = ev["external_id"]
+                # Facebook은 _cursor(Unix timestamp), 나머지는 external_id 사용
+                latest_id = ev.get("_cursor") or ev.get("external_id") or latest_id
 
             events_db.update_cursor(platform, last_since_id=latest_id)
 
@@ -152,5 +161,74 @@ def _fetch_x_events(since_id: str = None) -> list:
 
 def _fetch_fb_events(since_id: str = None) -> list:
     from src.api.meta_client import get_page_comments
-    raw = get_page_comments(since_timestamp=since_id)
+    # Facebook since 파라미터는 Unix 타임스탬프여야 함 — mock ID나 post ID는 무시
+    valid_since = None
+    if since_id:
+        try:
+            ts = int(since_id)
+            if 1_000_000_000 < ts < 9_999_999_999:
+                valid_since = since_id
+        except (ValueError, TypeError):
+            pass
+    raw = get_page_comments(since_timestamp=valid_since)
     return [_process_live_fb_event(c) for c in raw]
+
+
+def _fetch_threads_events(since_id: str = None) -> list:
+    from src.api.threads_client import get_threads_replies
+    raw = get_threads_replies(since_timestamp=since_id)
+    return [_process_live_threads_event(r) for r in raw]
+
+
+def daily_meta_token_check():
+    """
+    매일 Meta 토큰 만료일 확인 — 7일 이내이면 자동 갱신.
+    H-04: 갱신 실패 시 재시도 없이 critical 알림.
+    """
+    from src.api.meta_token import check_and_refresh_if_needed
+    result = check_and_refresh_if_needed()
+
+    if result["action"] == "refreshed":
+        notif_id = events_db.insert_notification(
+            title="[META] 액세스 토큰 자동 갱신 완료",
+            body=result["message"],
+            type_="system_info",
+            severity="info",
+        )
+        bus.publish({"type": "notification.new", "id": notif_id, "severity": "info"})
+
+    elif result["action"] in ("expired", "error"):
+        notif_id = events_db.insert_notification(
+            title="[META] 토큰 갱신 실패 — 수동 재발급 필요",
+            body=result["message"],
+            type_="api_error",
+            severity="critical",
+        )
+        bus.publish({"type": "notification.new", "id": notif_id, "severity": "critical"})
+
+
+def daily_threads_token_check():
+    """
+    매일 Threads 토큰 체크 — 마지막 갱신 후 30일 경과 시 자동 갱신.
+    H-04: 갱신 실패 시 재시도 없이 critical 알림.
+    """
+    from src.api.threads_token import check_and_refresh_if_needed
+    result = check_and_refresh_if_needed()
+
+    if result["action"] == "refreshed":
+        notif_id = events_db.insert_notification(
+            title="[THREADS] 액세스 토큰 자동 갱신 완료",
+            body=result["message"],
+            type_="system_info",
+            severity="info",
+        )
+        bus.publish({"type": "notification.new", "id": notif_id, "severity": "info"})
+
+    elif result["action"] == "error":
+        notif_id = events_db.insert_notification(
+            title="[THREADS] 토큰 갱신 실패 — OAuth 재연결 필요",
+            body=result["message"],
+            type_="api_error",
+            severity="critical",
+        )
+        bus.publish({"type": "notification.new", "id": notif_id, "severity": "critical"})

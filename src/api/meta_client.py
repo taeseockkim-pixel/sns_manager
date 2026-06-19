@@ -8,6 +8,8 @@ H-05: 플랫폼 격리 — 이 모듈은 Meta 계열만 담당
 import os
 import requests
 
+from src.api._ssl import ssl_verify
+
 BASE_URL = "https://graph.facebook.com/v19.0"
 
 
@@ -25,6 +27,7 @@ def post_to_page(message: str) -> dict:
         f"{BASE_URL}/{page_id}/feed",
         json={"message": message, "access_token": _token()},
         timeout=10,
+        verify=ssl_verify(),
     )
     if not resp.ok:
         raise RuntimeError(f"Meta API error {resp.status_code}: {resp.text}")
@@ -46,6 +49,7 @@ def post_to_instagram(image_url: str, caption: str) -> dict:
         f"{BASE_URL}/{ig_user_id}/media",
         json={"image_url": image_url, "caption": caption, "access_token": token},
         timeout=15,
+        verify=ssl_verify(),
     )
     if not container_resp.ok:
         raise RuntimeError(f"IG container error {container_resp.status_code}: {container_resp.text}")
@@ -56,6 +60,7 @@ def post_to_instagram(image_url: str, caption: str) -> dict:
         f"{BASE_URL}/{ig_user_id}/media_publish",
         json={"creation_id": container_id, "access_token": token},
         timeout=15,
+        verify=ssl_verify(),
     )
     if not publish_resp.ok:
         raise RuntimeError(f"IG publish error {publish_resp.status_code}: {publish_resp.text}")
@@ -72,7 +77,7 @@ def get_page_comments(since_timestamp: str = None) -> list:
     if since_timestamp:
         params["since"] = since_timestamp
 
-    resp = requests.get(f"{BASE_URL}/{page_id}/feed", params=params, timeout=10)
+    resp = requests.get(f"{BASE_URL}/{page_id}/feed", params=params, timeout=10, verify=ssl_verify())
     if not resp.ok:
         raise RuntimeError(f"Meta API error {resp.status_code}: {resp.text}")
     return resp.json().get("data", [])

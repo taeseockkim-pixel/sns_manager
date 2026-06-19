@@ -1,6 +1,6 @@
 <div id="notif-{{ notif.id }}"
      class="flex items-start gap-4 px-5 py-4 transition-colors
-            {% if not notif.read_at %}bg-blue-50/30{% else %}bg-white hover:bg-slate-50{% endif %}"
+            {% if not notif.read_at %}bg-indigo-50/30{% else %}bg-white hover:bg-slate-50{% endif %}"
      hx-patch="/notifications/{{ notif.id }}/read"
      hx-trigger="click once"
      hx-swap="none">

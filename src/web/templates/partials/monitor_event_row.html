@@ -22,6 +22,8 @@
     <span class="bg-slate-900 text-white text-xs font-bold px-2 py-0.5 rounded">X</span>
     {% elif event.platform == 'facebook' %}
     <span class="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded">FB</span>
+    {% elif event.platform == 'threads' %}
+    <span class="bg-slate-800 text-white text-xs font-bold px-2 py-0.5 rounded">TH</span>
     {% else %}
     <span class="bg-pink-500 text-white text-xs font-bold px-2 py-0.5 rounded">IG</span>
     {% endif %}
@@ -34,7 +36,7 @@
   <td class="px-5 py-3 max-w-sm">
     <p class="text-slate-800 text-sm truncate" title="{{ event.text }}">{{ event.text }}</p>
     {% if event.sentiment == 'ipo_sensitive' %}
-    <span class="text-xs text-purple-600 font-medium">IPO 민감 키워드 포함</span>
+    <span class="text-xs text-purple-600 font-medium">투자 민감 키워드 포함</span>
     {% elif event.sentiment == 'negative' %}
     <span class="text-xs text-red-600 font-medium">부정적 키워드 감지</span>
     {% endif %}
@@ -45,11 +47,23 @@
   </td>
 
   <td class="px-5 py-3">
-    {% if event.url %}
-    <a href="{{ event.url }}" target="_blank" rel="noopener noreferrer"
-       class="text-xs text-blue-600 hover:underline">원본 →</a>
-    {% else %}
-    <span class="text-xs text-slate-300">-</span>
-    {% endif %}
+    <div class="flex flex-col gap-1.5">
+      {% if event.url %}
+      <a href="{{ event.url }}" target="_blank" rel="noopener noreferrer"
+         class="text-xs text-blue-600 hover:underline whitespace-nowrap">원본 →</a>
+      {% elif platform_urls is defined and platform_urls.get(event.platform) %}
+      <a href="{{ platform_urls[event.platform] }}" target="_blank" rel="noopener noreferrer"
+         class="text-xs text-slate-400 hover:text-blue-500 hover:underline whitespace-nowrap">채널 →</a>
+      {% endif %}
+      <button hx-post="/reply-draft/{{ event.id }}"
+              hx-target="#reply-draft-{{ event.id }}"
+              hx-swap="outerHTML"
+              hx-indicator="#reply-spin-{{ event.id }}"
+              class="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded border border-indigo-100 hover:bg-indigo-100 transition-colors whitespace-nowrap">
+        AI 답변
+      </button>
+      <span id="reply-spin-{{ event.id }}" class="htmx-indicator text-xs text-slate-400">…</span>
+    </div>
   </td>
 </tr>
+<tr id="reply-draft-{{ event.id }}"><td colspan="6"></td></tr>
