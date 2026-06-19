@@ -158,40 +158,27 @@ def get_instagram_stats() -> dict:
     ig_user_id = _get_ig_user_id()
     token = _token()
 
-    data = {}
-    # 직접 조회 시도 (instagram_basic 권한 있을 때)
-    resp = requests.get(
-        f"{BASE_URL}/{ig_user_id}",
-        params={"fields": "followers_count,following_count,media_count", "access_token": token},
-        timeout=10, verify=ssl_verify(),
-    )
-    if resp.ok and resp.json().get("followers_count") is not None:
-        data = resp.json()
-    else:
-        # 폴백: Page 중첩 필드로 조회
-        page_id = os.environ.get("META_PAGE_ID", "")
-        if page_id:
-            fb_resp = requests.get(
-                f"{BASE_URL}/{page_id}",
-                params={
-                    "fields": "instagram_business_account{followers_count,following_count,media_count}",
-                    "access_token": token,
-                },
-                timeout=10, verify=ssl_verify(),
-            )
-            if fb_resp.ok:
-                ig_node = fb_resp.json().get("instagram_business_account", {})
-                data = ig_node if ig_node.get("followers_count") is not None else {}
-        if not data:
-            raise RuntimeError(
-                f"Instagram 통계 조회 실패 (권한 없음). "
-                f"설정 페이지에서 Facebook OAuth 연결을 다시 클릭해 instagram_basic 권한을 포함한 토큰을 재발급하세요."
-            )
-    followers = data.get("followers_count", 0)
-
+    followers: int = 0
+    following: int = 0
+    post_count: int = 0
     likes_avg: int = 0
     comments_avg: int = 0
-    engagement_rate: str = "0.00"
+    engagement_rate: str = "—"
+
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/{ig_user_id}",
+            params={"fields": "followers_count,following_count,media_count", "access_token": token},
+            timeout=10, verify=ssl_verify(),
+        )
+        if resp.ok:
+            data = resp.json()
+            followers  = data.get("followers_count", 0) or 0
+            following  = data.get("following_count", 0) or 0
+            post_count = data.get("media_count",     0) or 0
+    except Exception:
+        pass
+
     try:
         media_resp = requests.get(
             f"{BASE_URL}/{ig_user_id}/media",
@@ -201,8 +188,8 @@ def get_instagram_stats() -> dict:
         if media_resp.ok:
             media = media_resp.json().get("data", [])
             if media:
-                likes    = [m.get("like_count",      0) for m in media]
-                comments = [m.get("comments_count",  0) for m in media]
+                likes    = [m.get("like_count",     0) for m in media]
+                comments = [m.get("comments_count", 0) for m in media]
                 likes_avg    = sum(likes)    // len(likes)
                 comments_avg = sum(comments) // len(comments)
                 if followers > 0:
@@ -213,8 +200,8 @@ def get_instagram_stats() -> dict:
 
     return {
         "followers":  followers,
-        "following":  data.get("following_count", 0),
-        "post_count": data.get("media_count",     0),
+        "following":  following,
+        "post_count": post_count,
         "extra": {
             "likes_avg":       likes_avg,
             "comments_avg":    comments_avg,

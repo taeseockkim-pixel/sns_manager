@@ -256,6 +256,7 @@ async def facebook_auth_redirect(request: Request):
         "pages_manage_posts",
         "pages_manage_engagement",
         "pages_manage_metadata",
+        "instagram_business_basic",
         "instagram_manage_comments",
         "read_insights",
     ])
