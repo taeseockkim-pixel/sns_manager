@@ -182,7 +182,7 @@ async def fetch_instagram_id(request: Request):
     if not token or not page_id:
         return templates.TemplateResponse(
             request, "setup.html",
-            {"creds": _cred_status(), "page": "setup",
+            {"creds": _cred_status(), "profile": _profile_values(), "page": "setup",
              "error": "META_PAGE_ACCESS_TOKEN 또는 META_PAGE_ID가 설정되지 않았습니다."}
         )
 
@@ -224,14 +224,15 @@ async def fetch_instagram_id(request: Request):
 
         return templates.TemplateResponse(
             request, "setup.html",
-            {"creds": _cred_status(), "page": "setup",
+            {"creds": _cred_status(), "profile": _profile_values(), "page": "setup",
              "success": msg if ig_id else None,
              "error": msg if not ig_id else None}
         )
     except Exception as exc:
         return templates.TemplateResponse(
             request, "setup.html",
-            {"creds": _cred_status(), "page": "setup", "error": f"Instagram 조회 실패: {exc}"}
+            {"creds": _cred_status(), "profile": _profile_values(), "page": "setup",
+             "error": f"Instagram 조회 실패: {exc}"}
         )
 
 
