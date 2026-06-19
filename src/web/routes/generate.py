@@ -337,31 +337,37 @@ async def generate_content(
              "saved_filename": None, "pamphlet_html": None, "pamphlet_b64": None},
         )
 
-    # ── 플랫폼별 SNS 콘텐츠 생성 ──
-    for platform in platforms:
-        try:
-            content = _generate_live(platform, topic, points)
+    # ── 플랫폼별 SNS 콘텐츠 병렬 생성 ──
+    import asyncio
 
-            if content["brand_safety_score"] < 80:
-                errors.append(
-                    f"{platform.upper()}: 브랜드 안전 점수 미달 "
-                    f"({content['brand_safety_score']:.0f}점, 기준 80점)"
-                )
-                continue
+    async def _gen_one(platform: str):
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _generate_live, platform, topic, points)
 
-            queue_id = queue_db.enqueue(content)
-            events_db.insert_notification(
-                title=f"새 홍보물 생성 [{platform.upper()}]",
-                body=f"{topic} (점수: {content['brand_safety_score']:.0f})",
-                type_="queue_new",
-                severity="info",
-                queue_id=queue_id,
+    raw = await asyncio.gather(*[_gen_one(p) for p in platforms], return_exceptions=True)
+
+    for platform, result in zip(platforms, raw):
+        if isinstance(result, Exception):
+            errors.append(f"{platform.upper()}: {str(result)[:120]}")
+            continue
+        content = result
+        if content["brand_safety_score"] < 80:
+            errors.append(
+                f"{platform.upper()}: 브랜드 안전 점수 미달 "
+                f"({content['brand_safety_score']:.0f}점, 기준 80점)"
             )
-            bus.publish({"type": "queue.new", "id": queue_id, "platform": platform})
-            results.append(platform.upper())
-            generated_items.append(content)
-        except Exception as exc:
-            errors.append(f"{platform.upper()}: {str(exc)[:120]}")
+            continue
+        queue_id = queue_db.enqueue(content)
+        events_db.insert_notification(
+            title=f"새 홍보물 생성 [{platform.upper()}]",
+            body=f"{topic} (점수: {content['brand_safety_score']:.0f})",
+            type_="queue_new",
+            severity="info",
+            queue_id=queue_id,
+        )
+        bus.publish({"type": "queue.new", "id": queue_id, "platform": platform})
+        results.append(platform.upper())
+        generated_items.append(content)
 
     saved_filename = None
     pamphlet_html = None

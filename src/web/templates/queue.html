@@ -15,8 +15,11 @@
 </div>
 
 <div class="bg-white rounded-xl border border-slate-200 p-5 mb-8 shadow-sm">
-  <form hx-post="/generate" hx-target="#generate-result" hx-swap="innerHTML" hx-indicator="#generate-spinner"
-        hx-encoding="multipart/form-data" accept-charset="UTF-8">
+  <form hx-post="/generate" hx-target="#generate-result" hx-swap="innerHTML"
+        hx-encoding="multipart/form-data" accept-charset="UTF-8"
+        hx-on:htmx:before-request="onGenerateStart()"
+        hx-on:htmx:after-request="onGenerateEnd(event)"
+        hx-on:htmx:after-swap="document.getElementById('generate-result').scrollIntoView({behavior:'smooth',block:'nearest'})">
     <div class="grid grid-cols-1 gap-4 mb-4">
       <!-- 제품 자료 첨부 -->
       <div>
@@ -89,11 +92,17 @@
         </div>
       </div>
       <div class="flex items-center gap-2 ml-auto">
-        <button type="submit"
-                class="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
+        <button type="submit" id="generate-btn"
+                class="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
           홍보물 생성
         </button>
-        <span id="generate-spinner" class="htmx-indicator text-xs text-slate-400">생성 중…</span>
+        <span id="generate-spinner" class="hidden text-xs text-slate-500 flex items-center gap-1.5">
+          <svg class="animate-spin w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          AI 생성 중… (최대 30초)
+        </span>
       </div>
     </div>
   </form>
@@ -165,4 +174,34 @@
     </tbody>
   </table>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function onGenerateStart() {
+  var btn = document.getElementById('generate-btn');
+  var sp  = document.getElementById('generate-spinner');
+  btn.disabled = true;
+  btn.textContent = '생성 중...';
+  if (sp) { sp.style.display = 'inline-flex'; }
+  document.getElementById('generate-result').innerHTML = '';
+}
+function onGenerateEnd(evt) {
+  var btn = document.getElementById('generate-btn');
+  var sp  = document.getElementById('generate-spinner');
+  btn.disabled = false;
+  btn.textContent = '홍보물 생성';
+  if (sp) { sp.style.display = ''; }
+
+  var xhr = evt.detail && evt.detail.xhr;
+  if (xhr && xhr.status >= 400) {
+    var msg = xhr.status === 504
+      ? '처리 시간이 초과되었습니다. PDF가 너무 크거나 네트워크가 느릴 수 있습니다. 잠시 후 다시 시도해 주세요.'
+      : '오류가 발생했습니다 (HTTP ' + xhr.status + '). 잠시 후 다시 시도해 주세요. — ' + (xhr.responseText || '').slice(0, 200);
+    document.getElementById('generate-result').innerHTML =
+      '<div style="margin-top:12px;padding:14px 16px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;color:#dc2626;font-size:14px;line-height:1.5;">⚠️ ' + msg + '</div>';
+    document.getElementById('generate-result').scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+}
+</script>
 {% endblock %}
