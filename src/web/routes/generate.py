@@ -25,6 +25,43 @@ _DELIVERABLES_DIR = Path(__file__).resolve().parents[3] / "deliverables"
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 
 
+def _has_cjk(text: str) -> bool:
+    """한자·일본어·중국어 문자(CJK) 포함 여부 검사. 한글·영문·숫자·이모지는 허용."""
+    for ch in text:
+        cp = ord(ch)
+        if (0x4E00 <= cp <= 0x9FFF   # CJK 통합 한자
+                or 0x3400 <= cp <= 0x4DBF   # CJK 확장 A
+                or 0xF900 <= cp <= 0xFAFF   # CJK 호환 한자
+                or 0x3040 <= cp <= 0x30FF): # 히라가나·가타카나
+            return True
+    return False
+
+
+def _build_prompt(platform: str, platform_guide: str, profile_ctx: str, topic: str, points_ctx: str) -> str:
+    return (
+        f"[필수 언어 규칙] ko_text 필드는 반드시 순수 한글(가나다라마바사...)만 사용하세요. "
+        f"한자(漢字), 일본어, 중국어 문자는 단 한 글자도 허용되지 않습니다. "
+        f"예: 企業→기업, 仕樣→사양, 技術→기술 으로 반드시 한글로 변환하세요.\n\n"
+        f"{profile_ctx}\n"
+        f"위 회사 정보를 바탕으로 SNS 홍보 게시물을 작성해 주세요.\n"
+        f"플랫폼: {platform} ({platform_guide})\n"
+        f"주제: {topic}{points_ctx}\n\n"
+        f"JSON으로만 응답 (다른 텍스트 없이, 마크다운 코드블록 없이):\n"
+        f'{{\"ko_text\": \"한국어 본문\", \"ko_hashtags\": [\"태그1\"], '
+        f'\"en_text\": \"English text\", \"en_hashtags\": [\"tag1\"], '
+        f'\"brand_safety_score\": 0~100}}\n\n'
+        f"주의: IPO, 주가, 상장, 공모가 등 투자 관련 내용은 절대 포함하지 마세요."
+    )
+
+
+def _parse_response(response_text: str) -> dict:
+    clean = response_text.strip()
+    if clean.startswith("```"):
+        clean = clean.split("```", 2)[-1] if clean.count("```") >= 2 else clean
+        clean = clean.lstrip("json").strip().rstrip("```").strip()
+    return json.loads(clean)
+
+
 def _generate_live(platform: str, topic: str, points: str = "") -> dict:
     from src.ai.client import call_ai
 
@@ -49,26 +86,16 @@ def _generate_live(platform: str, topic: str, points: str = "") -> dict:
 
     points_ctx = f"\n홍보 포인트 (강조할 내용):\n{points.strip()}" if points.strip() else ""
 
-    prompt = (
-        f"{profile_ctx}\n"
-        f"위 회사 정보를 바탕으로 SNS 홍보 게시물을 작성해 주세요.\n"
-        f"플랫폼: {platform} ({platform_guide})\n"
-        f"주제: {topic}{points_ctx}\n\n"
-        f"JSON으로만 응답 (다른 텍스트 없이, 마크다운 코드블록 없이):\n"
-        f'{{\"ko_text\": \"한국어 본문\", \"ko_hashtags\": [\"태그1\"], '
-        f'\"en_text\": \"English text\", \"en_hashtags\": [\"tag1\"], '
-        f'\"brand_safety_score\": 0~100}}\n\n'
-        f"주의: IPO, 주가, 상장, 공모가 등 투자 관련 내용은 절대 포함하지 마세요.\n"
-        f"언어: ko_text는 반드시 순수 한글(가나다라...)만 사용하세요. 한자(漢字·企業·仕樣 등), 일본어, 중국어 문자는 절대 사용하지 마세요."
-    )
+    prompt = _build_prompt(platform, platform_guide, profile_ctx, topic, points_ctx)
+    data = _parse_response(call_ai(prompt, max_tokens=1024))
 
-    response_text = call_ai(prompt, max_tokens=1024)
-    # Gemini가 마크다운 코드블록으로 감싸는 경우 제거
-    clean = response_text.strip()
-    if clean.startswith("```"):
-        clean = clean.split("```", 2)[-1] if clean.count("```") >= 2 else clean
-        clean = clean.lstrip("json").strip().rstrip("```").strip()
-    data = json.loads(clean)
+    # 한자 감지 시 1회 재시도
+    if _has_cjk(data.get("ko_text", "")):
+        retry_prompt = prompt + "\n\n[경고] 이전 응답에 한자가 포함되었습니다. ko_text에 한자가 전혀 없도록 다시 작성하세요."
+        data = _parse_response(call_ai(retry_prompt, max_tokens=1024))
+        if _has_cjk(data.get("ko_text", "")):
+            raise RuntimeError("AI가 한자를 포함한 텍스트를 반복 생성했습니다. 잠시 후 다시 시도해 주세요.")
+
     return {
         "platform": platform,
         "topic": topic,
