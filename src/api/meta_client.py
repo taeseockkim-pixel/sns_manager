@@ -153,13 +153,15 @@ def _get_ig_user_id() -> str:
 
 
 def get_instagram_stats() -> dict:
-    """Instagram 비즈니스 계정 팔로워 + 최근 10개 미디어 좋아요/댓글 평균."""
+    """Instagram 비즈니스 계정 팔로워 + 최근 10개 미디어 좋아요/댓글 평균.
+    instagram_business_basic 권한 기반 (신규 API)."""
     ig_user_id = _get_ig_user_id()
     token = _token()
 
+    # instagram_business_basic: followers_count, following_count, media_count
     resp = requests.get(
         f"{BASE_URL}/{ig_user_id}",
-        params={"fields": "followers_count,follows_count,media_count", "access_token": token},
+        params={"fields": "followers_count,following_count,media_count", "access_token": token},
         timeout=10, verify=ssl_verify(),
     )
     if not resp.ok:
@@ -191,8 +193,8 @@ def get_instagram_stats() -> dict:
 
     return {
         "followers":  followers,
-        "following":  data.get("follows_count", 0),
-        "post_count": data.get("media_count",   0),
+        "following":  data.get("following_count", 0),
+        "post_count": data.get("media_count",     0),
         "extra": {
             "likes_avg":       likes_avg,
             "comments_avg":    comments_avg,
