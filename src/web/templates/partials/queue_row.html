@@ -25,12 +25,20 @@
 
   <td class="px-5 py-4 max-w-xs">
     <p class="text-slate-900 font-semibold text-sm truncate">{{ item.topic or '(주제 없음)' }}</p>
-    <p class="text-slate-500 text-xs mt-0.5 truncate" title="{{ item.ko_text }}">
-      🇰🇷 {{ item.ko_text[:60] }}{% if item.ko_text|length > 60 %}…{% endif %}
-    </p>
-    <p class="text-slate-400 text-xs mt-0.5 truncate" title="{{ item.en_text }}">
-      🇺🇸 {{ item.en_text[:60] }}{% if item.en_text|length > 60 %}…{% endif %}
-    </p>
+    <details class="mt-0.5 group">
+      <summary class="text-slate-500 text-xs cursor-pointer list-none flex items-start gap-1">
+        <span class="shrink-0">🇰🇷</span>
+        <span class="group-open:hidden">{{ item.ko_text[:80] }}{% if item.ko_text|length > 80 %}<span class="text-indigo-400 ml-1">…더보기</span>{% endif %}</span>
+        <span class="hidden group-open:inline whitespace-pre-wrap break-words">{{ item.ko_text }}</span>
+      </summary>
+    </details>
+    <details class="mt-0.5 group">
+      <summary class="text-slate-400 text-xs cursor-pointer list-none flex items-start gap-1">
+        <span class="shrink-0">🇺🇸</span>
+        <span class="group-open:hidden">{{ item.en_text[:80] }}{% if item.en_text|length > 80 %}<span class="text-indigo-400 ml-1">…more</span>{% endif %}</span>
+        <span class="hidden group-open:inline whitespace-pre-wrap break-words">{{ item.en_text }}</span>
+      </summary>
+    </details>
     {% if item.rejection_reason %}
     <p class="text-red-500 text-xs mt-1 font-medium">반려: {{ item.rejection_reason }}</p>
     {% endif %}

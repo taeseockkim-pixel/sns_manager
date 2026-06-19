@@ -58,7 +58,8 @@ def _generate_live(platform: str, topic: str, points: str = "") -> dict:
         f'{{\"ko_text\": \"한국어 본문\", \"ko_hashtags\": [\"태그1\"], '
         f'\"en_text\": \"English text\", \"en_hashtags\": [\"tag1\"], '
         f'\"brand_safety_score\": 0~100}}\n\n'
-        f"주의: IPO, 주가, 상장, 공모가 등 투자 관련 내용은 절대 포함하지 마세요."
+        f"주의: IPO, 주가, 상장, 공모가 등 투자 관련 내용은 절대 포함하지 마세요.\n"
+        f"언어: ko_text는 반드시 순수 한글(가나다라...)만 사용하세요. 한자(漢字·企業·仕樣 등), 일본어, 중국어 문자는 절대 사용하지 마세요."
     )
 
     response_text = call_ai(prompt, max_tokens=1024)
