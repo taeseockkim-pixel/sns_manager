@@ -87,12 +87,20 @@ def _extract_text_from_file(file_bytes: bytes, filename: str) -> str:
 
     elif name.endswith(".docx"):
         import io
-        import docx
-        doc = docx.Document(io.BytesIO(file_bytes))
-        paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
-        if not paragraphs:
+        import zipfile
+        import xml.etree.ElementTree as ET
+        W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        texts = []
+        with zipfile.ZipFile(io.BytesIO(file_bytes)) as z:
+            with z.open("word/document.xml") as f:
+                root = ET.parse(f).getroot()
+        for para in root.iter(f"{{{W}}}p"):
+            line = "".join(t.text or "" for t in para.iter(f"{{{W}}}t"))
+            if line.strip():
+                texts.append(line.strip())
+        if not texts:
             raise ValueError("DOCX에서 텍스트를 추출할 수 없습니다.")
-        return "\n".join(paragraphs)
+        return "\n".join(texts)
 
     elif name.endswith(".txt"):
         for enc in ("utf-8", "cp949", "euc-kr"):
