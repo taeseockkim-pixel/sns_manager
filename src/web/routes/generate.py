@@ -9,8 +9,9 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
@@ -23,6 +24,9 @@ router = APIRouter()
 _TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
 _DELIVERABLES_DIR = Path(__file__).resolve().parents[3] / "deliverables"
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
+
+_MAX_UPLOAD_BYTES = 4 * 1024 * 1024  # 4 MB
+_SUPPORTED_EXTS = (".pdf", ".docx", ".txt", ".png", ".jpg", ".jpeg", ".gif", ".webp")
 
 
 def _has_cjk(text: str) -> bool:
@@ -61,6 +65,136 @@ def _parse_response(response_text: str) -> dict:
         clean = clean.lstrip("json").strip().rstrip("```").strip()
     return json.loads(clean)
 
+
+# ── 파일 텍스트 추출 ────────────────────────────────────────────
+
+def _extract_text_from_file(file_bytes: bytes, filename: str) -> str:
+    """업로드된 파일에서 텍스트 추출. 지원: PDF, DOCX, TXT, 이미지."""
+    name = filename.lower()
+
+    if name.endswith(".pdf"):
+        import io
+        import pdfplumber
+        pages = []
+        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+            for page in pdf.pages:
+                t = page.extract_text()
+                if t:
+                    pages.append(t.strip())
+        if not pages:
+            raise ValueError("PDF에서 텍스트를 추출할 수 없습니다. 스캔 이미지 PDF라면 PNG/JPG로 첨부해 주세요.")
+        return "\n\n".join(pages)
+
+    elif name.endswith(".docx"):
+        import io
+        import docx
+        doc = docx.Document(io.BytesIO(file_bytes))
+        paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+        if not paragraphs:
+            raise ValueError("DOCX에서 텍스트를 추출할 수 없습니다.")
+        return "\n".join(paragraphs)
+
+    elif name.endswith(".txt"):
+        for enc in ("utf-8", "cp949", "euc-kr"):
+            try:
+                return file_bytes.decode(enc)
+            except UnicodeDecodeError:
+                continue
+        return file_bytes.decode("utf-8", errors="replace")
+
+    elif name.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
+        return _extract_image_text(file_bytes, name)
+
+    raise ValueError(f"지원하지 않는 파일 형식입니다. 지원: PDF, DOCX, TXT, PNG, JPG")
+
+
+def _extract_image_text(file_bytes: bytes, filename: str) -> str:
+    """Vision AI(Anthropic 또는 Gemini)로 이미지에서 텍스트·정보 추출."""
+    import base64
+
+    ext = filename.rsplit(".", 1)[-1].lower()
+    mime_map = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                "gif": "image/gif", "webp": "image/webp"}
+    mime = mime_map.get(ext, "image/jpeg")
+
+    question = "이 이미지/문서에서 제품명, 주요 기능, 사양, 홍보 포인트 등 모든 텍스트 정보를 자세히 추출해 주세요."
+
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+
+    if anthropic_key:
+        import anthropic
+        import httpx
+        b64 = base64.standard_b64encode(file_bytes).decode()
+        client = anthropic.Anthropic(api_key=anthropic_key, http_client=httpx.Client(verify=False))
+        msg = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64}},
+                {"type": "text", "text": question},
+            ]}],
+        )
+        return msg.content[0].text
+
+    elif gemini_key:
+        from google import genai
+        from google.genai import types
+        client = genai.Client(api_key=gemini_key)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_bytes(data=file_bytes, mime_type=mime),
+                    types.Part.from_text(question),
+                ],
+            ),
+        )
+        return response.text
+
+    raise RuntimeError("이미지 분석에는 ANTHROPIC_API_KEY 또는 GEMINI_API_KEY가 필요합니다.")
+
+
+def _analyze_document(extracted_text: str) -> dict:
+    """AI로 문서 텍스트에서 SNS 홍보용 주제·포인트·핵심특징 추출."""
+    from src.ai.client import call_ai
+    prompt = (
+        "아래 문서 내용에서 SNS 홍보물 작성에 필요한 정보를 추출하세요.\n\n"
+        f"문서:\n{extracted_text[:3000]}\n\n"
+        "[필수 언어 규칙] 모든 텍스트는 순수 한글만 사용하세요. 한자/일본어 절대 금지.\n"
+        "JSON으로만 응답 (마크다운 코드블록 없이):\n"
+        '{"topic": "홍보 주제 한 줄 (순수 한글)", '
+        '"points": "- 포인트1\\n- 포인트2\\n- 포인트3 (순수 한글)", '
+        '"key_features": ["특징1", "특징2", "특징3"]}\n'
+        "key_features 는 최대 5개 배열. 모두 순수 한글로."
+    )
+    try:
+        response = call_ai(prompt, max_tokens=512)
+        return _parse_response(response)
+    except Exception:
+        return {"topic": "", "points": "", "key_features": []}
+
+
+def _generate_image_prompt(topic: str, key_features: list) -> str:
+    """SNS 홍보 이미지용 생성 프롬프트 (Midjourney/Canva/DALL-E 등에서 사용)."""
+    features = ", ".join(key_features[:3]) if key_features else "industrial automation, smart factory"
+    return (
+        f"Professional promotional banner for CIMON, Korean smart factory HMI software company. "
+        f"Subject: {topic}. Key features: {features}. "
+        f"Modern corporate design, blue and white color scheme (#1d4ed8 primary), "
+        f"industrial HMI interface visuals, clean minimalist layout, "
+        f"no text overlay, photorealistic, 16:9 aspect ratio."
+    )
+
+
+def _render_pamphlet(topic: str, gen_date: str, key_features: list, items: list, image_prompt: str = "") -> str:
+    """Jinja2 템플릿으로 HTML 팜플렛 렌더링."""
+    tmpl = templates.get_template("partials/pamphlet.html")
+    return tmpl.render(topic=topic, gen_date=gen_date, key_features=key_features, items=items, image_prompt=image_prompt)
+
+
+# ── SNS 콘텐츠 생성 ─────────────────────────────────────────────
 
 def _generate_live(platform: str, topic: str, points: str = "") -> dict:
     from src.ai.client import call_ai
@@ -132,36 +266,70 @@ def _save_promo_file(topic: str, generated_items: list) -> str:
     return filename
 
 
+# ── 메인 엔드포인트 ─────────────────────────────────────────────
+
 @router.post("/generate", response_class=HTMLResponse)
 async def generate_content(
     request: Request,
-    topic: str = Form(...),
+    topic: str = Form(default=""),
     points: str = Form(default=""),
     platforms: list[str] = Form(...),
+    attachment: Optional[UploadFile] = File(default=None),
     reviewer: str = Depends(verify_credentials),
 ):
     pending_items = queue_db.list_all("pending")
+    results: list[str] = []
+    generated_items: list[dict] = []
+    errors: list[str] = []
+    key_features: list[str] = []
 
     if not os.getenv("GROQ_API_KEY") and not os.getenv("GEMINI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"):
         return templates.TemplateResponse(
             request,
             "partials/generate_result.html",
             {
-                "results": [],
-                "errors": [
+                "results": [], "errors": [
                     "AI API 키가 설정되지 않았습니다. "
                     "설정 페이지에서 GEMINI_API_KEY(무료) 또는 ANTHROPIC_API_KEY를 등록해 주세요."
                 ],
-                "topic": topic,
-                "items": pending_items,
-                "saved_filename": None,
+                "topic": topic, "items": pending_items,
+                "saved_filename": None, "pamphlet_html": None, "pamphlet_b64": None,
             },
         )
 
-    results = []
-    generated_items = []
-    errors = []
+    # ── 첨부 파일 처리 ──
+    if attachment and attachment.filename:
+        fname = attachment.filename
+        ext = Path(fname).suffix.lower()
+        if ext not in _SUPPORTED_EXTS:
+            errors.append(f"지원하지 않는 파일 형식입니다 ({ext}). PDF, DOCX, TXT, PNG, JPG 파일을 첨부해 주세요.")
+        else:
+            file_bytes = await attachment.read()
+            if len(file_bytes) > _MAX_UPLOAD_BYTES:
+                errors.append(f"파일 크기 초과 ({len(file_bytes) // 1024}KB). 최대 4MB까지 가능합니다.")
+            else:
+                try:
+                    extracted_text = _extract_text_from_file(file_bytes, fname)
+                    doc_info = _analyze_document(extracted_text)
+                    # 사용자가 입력하지 않은 항목만 파일에서 자동 보완
+                    if not topic.strip() and doc_info.get("topic"):
+                        topic = doc_info["topic"]
+                    if not points.strip() and doc_info.get("points"):
+                        points = doc_info["points"]
+                    key_features = [f for f in doc_info.get("key_features", []) if f]
+                except Exception as exc:
+                    errors.append(f"파일 분석 오류: {str(exc)[:150]}")
 
+    if not topic.strip():
+        errors.append("주제를 입력하거나 제품 자료 파일을 첨부해 주세요.")
+        return templates.TemplateResponse(
+            request,
+            "partials/generate_result.html",
+            {"results": [], "errors": errors, "topic": topic, "items": pending_items,
+             "saved_filename": None, "pamphlet_html": None, "pamphlet_b64": None},
+        )
+
+    # ── 플랫폼별 SNS 콘텐츠 생성 ──
     for platform in platforms:
         try:
             content = _generate_live(platform, topic, points)
@@ -188,9 +356,19 @@ async def generate_content(
             errors.append(f"{platform.upper()}: {str(exc)[:120]}")
 
     saved_filename = None
+    pamphlet_html = None
+    pamphlet_b64 = None
     if generated_items:
         try:
             saved_filename = _save_promo_file(topic, generated_items)
+        except Exception:
+            pass
+        try:
+            import base64 as _b64
+            gen_date = datetime.now().strftime("%Y-%m-%d %H:%M")
+            image_prompt = _generate_image_prompt(topic, key_features)
+            pamphlet_html = _render_pamphlet(topic, gen_date, key_features, generated_items, image_prompt)
+            pamphlet_b64 = _b64.b64encode(pamphlet_html.encode("utf-8")).decode()
         except Exception:
             pass
 
@@ -204,5 +382,7 @@ async def generate_content(
             "topic": topic,
             "items": pending_items,
             "saved_filename": saved_filename,
+            "pamphlet_html": pamphlet_html,
+            "pamphlet_b64": pamphlet_b64,
         },
     )

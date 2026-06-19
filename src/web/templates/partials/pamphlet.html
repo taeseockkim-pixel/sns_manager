@@ -1,0 +1,89 @@
+{#
+  CIMON 홍보 팜플렛 — 인라인 임베드용 (generate_result.html 에서 {{ pamphlet_html | safe }} 로 삽입)
+  파라미터: topic, gen_date, key_features (list), items (list of content dicts)
+#}
+<div id="pamphlet-content" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#f8fafc;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
+
+  {# ── 헤더 ── #}
+  <div style="background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 100%);padding:32px 36px;color:white;">
+    <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.65;margin-bottom:8px;">CIMON PROMOTIONAL MATERIAL</div>
+    <h1 style="font-size:22px;font-weight:800;margin:0;line-height:1.35;word-break:keep-all;">{{ topic }}</h1>
+    <div style="margin-top:10px;font-size:12px;opacity:.7;">{{ gen_date }} 생성</div>
+  </div>
+
+  {# ── 핵심 특징 (문서 첨부 시에만 표시) ── #}
+  {% if key_features %}
+  <div style="padding:22px 36px;background:white;border-bottom:1px solid #e2e8f0;">
+    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">핵심 특징</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      {% for f in key_features %}
+      <span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:5px 13px;font-size:12px;color:#1d4ed8;font-weight:500;">{{ f }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── SNS 콘텐츠 ── #}
+  <div style="padding:22px 36px;">
+    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">SNS 홍보 콘텐츠</div>
+
+    {% for item in items %}
+    <div style="background:white;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;overflow:hidden;">
+
+      {# 플랫폼 뱃지 #}
+      <div style="padding:10px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;">
+        {% if item.platform == 'x' %}
+        <span style="background:#111827;color:white;width:22px;height:22px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;">X</span>
+        {% elif item.platform == 'facebook' %}
+        <span style="background:#1877f2;color:white;width:22px;height:22px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">f</span>
+        {% elif item.platform == 'threads' %}
+        <span style="background:#111827;color:white;width:22px;height:22px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">@</span>
+        {% else %}
+        <span style="background:linear-gradient(135deg,#e6683c,#cc2366);color:white;width:22px;height:22px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;flex-shrink:0;">IG</span>
+        {% endif %}
+        <span style="font-size:13px;font-weight:700;color:#1e293b;">{{ item.platform.upper() }}</span>
+        <span style="font-size:11px;color:#94a3b8;margin-left:auto;">안전점수 {{ "%.0f"|format(item.brand_safety_score) }}/100</span>
+      </div>
+
+      {# 콘텐츠 본문 #}
+      <div style="padding:16px;">
+        <div style="margin-bottom:14px;">
+          <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">🇰🇷 국문</div>
+          <div style="font-size:13px;color:#1e293b;line-height:1.75;white-space:pre-wrap;word-break:keep-all;">{{ item.ko.text }}</div>
+          {% if item.ko.hashtags %}
+          <div style="margin-top:8px;font-size:11px;color:#3b82f6;line-height:1.6;">{% for t in item.ko.hashtags %}#{{ t }} {% endfor %}</div>
+          {% endif %}
+        </div>
+        <div style="padding-top:12px;border-top:1px dashed #e2e8f0;">
+          <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">🇺🇸 English</div>
+          <div style="font-size:13px;color:#475569;line-height:1.75;white-space:pre-wrap;">{{ item.en.text }}</div>
+          {% if item.en.hashtags %}
+          <div style="margin-top:8px;font-size:11px;color:#3b82f6;line-height:1.6;">{% for t in item.en.hashtags %}#{{ t }} {% endfor %}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ── 이미지 생성 프롬프트 ── #}
+  {% if image_prompt %}
+  <div style="padding:20px 36px;background:#f0f4ff;border-top:1px solid #e2e8f0;">
+    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+      이미지 생성 프롬프트
+      <span style="font-size:9px;font-weight:400;color:#94a3b8;margin-left:6px;">Canva · Midjourney · DALL-E 등에서 사용</span>
+    </div>
+    <div style="background:white;border:1px solid #c7d2fe;border-radius:8px;padding:12px 14px;font-size:12px;color:#4338ca;line-height:1.6;word-break:break-word;">{{ image_prompt }}</div>
+  </div>
+  {% endif %}
+
+  {# ── 푸터 ── #}
+  <div style="padding:18px 36px;background:#1e293b;color:#94a3b8;font-size:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <div>
+      <span style="color:white;font-weight:700;font-size:14px;margin-right:8px;">CIMON</span>
+      스마트팩토리 솔루션 전문기업
+    </div>
+    <div>www.cimon.com</div>
+  </div>
+
+</div>

@@ -149,13 +149,15 @@ async def publish_log_page(request: Request):
 async def deliverables_page(request: Request):
     files = []
     if _DELIVERABLES_DIR.exists():
-        for md_file in sorted(_DELIVERABLES_DIR.glob("*.md")):
-            stat = md_file.stat()
-            files.append({
-                "name": md_file.name,
-                "size": stat.st_size,
-                "modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
-            })
+        for f in sorted(_DELIVERABLES_DIR.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
+            if f.suffix in (".md", ".html"):
+                stat = f.stat()
+                files.append({
+                    "name": f.name,
+                    "size": stat.st_size,
+                    "modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
+                    "type": f.suffix.lstrip("."),
+                })
 
     unread_count = events_db.count_unread()
     return templates.TemplateResponse(request, "deliverables.html", {
@@ -167,15 +169,21 @@ async def deliverables_page(request: Request):
 
 @router.get("/deliverables/view/{filename}", response_class=HTMLResponse)
 async def view_deliverable(request: Request, filename: str):
-    import markdown as md_lib
     safe_name = Path(filename).name
     file_path = _DELIVERABLES_DIR / safe_name
-    if not file_path.exists() or file_path.suffix != ".md":
+    if not file_path.exists() or file_path.suffix not in (".md", ".html"):
         return HTMLResponse("<p>파일을 찾을 수 없습니다.</p>", status_code=404)
 
+    unread_count = events_db.count_unread()
+
+    if file_path.suffix == ".html":
+        # 팜플렛 HTML 파일: 직접 서빙
+        content = file_path.read_text(encoding="utf-8")
+        return HTMLResponse(content)
+
+    import markdown as md_lib
     content_md = file_path.read_text(encoding="utf-8")
     content_html = md_lib.markdown(content_md, extensions=["tables", "fenced_code"])
-    unread_count = events_db.count_unread()
 
     return templates.TemplateResponse(request, "deliverable_view.html", {
         "page": "deliverables",
@@ -189,6 +197,7 @@ async def view_deliverable(request: Request, filename: str):
 async def download_deliverable(filename: str):
     safe_name = Path(filename).name
     file_path = _DELIVERABLES_DIR / safe_name
-    if not file_path.exists() or file_path.suffix != ".md":
+    if not file_path.exists() or file_path.suffix not in (".md", ".html"):
         return HTMLResponse("파일을 찾을 수 없습니다.", status_code=404)
-    return FileResponse(str(file_path), filename=safe_name, media_type="text/markdown")
+    media = "text/html" if file_path.suffix == ".html" else "text/markdown"
+    return FileResponse(str(file_path), filename=safe_name, media_type=media)
